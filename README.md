@@ -53,7 +53,7 @@ To install this config on any NixOS system:
 
 ```bash
 git clone https://github.com/GerhardMe/GNOMS ~/GNOMS
-cd ~/GNOMS/scripts
+cd ~/GNOMS/nixos
 ./reconfigure.sh rebuild
 ```
 

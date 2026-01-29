@@ -187,8 +187,9 @@ in {
     allowedTCPPorts = [
       # 8384
       22000
+      53317 # localsend
     ]; # 22000 TCP and/or UDP for sync traffic & 8384 for remote access to GUI
-    allowedUDPPorts = [ 22000 21027 ]; # 21027/UDP for discovery
+    allowedUDPPorts = [ 22000 21027 53317]; # 21027/UDP for discovery
     # SSH:
     extraInputRules = ''
       tcp dport 34826 ct state new limit rate 30/minute accept
