@@ -188,6 +188,7 @@ in {
       # 8384
       22000
       53317 # localsend
+      4321
     ]; # 22000 TCP and/or UDP for sync traffic & 8384 for remote access to GUI
     allowedUDPPorts = [ 22000 21027 53317]; # 21027/UDP for discovery
     # SSH:
