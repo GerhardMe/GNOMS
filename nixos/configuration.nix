@@ -69,8 +69,10 @@ in {
 
   users.users.{{username}} = {
     isNormalUser = true;
-    extraGroups = [ "networkmanager" "wheel" "dialout" ];
+    extraGroups = [ "networkmanager" "wheel" "dialout" "audio" "jackaudio" ];
     shell = pkgs.fish;
+    subUidRanges = [{ startUid=100000; count=65536;}];
+    subGidRanges = [{ startGid=100000; count=65536;}];
   };
   programs.fish.enable = true;
 
@@ -143,7 +145,7 @@ in {
     alsa.enable = true;
     alsa.support32Bit = true;
     pulse.enable = true;
-    # jack.enable = true;
+    jack.enable = true;
   };
 
   # Bluetooth
@@ -175,7 +177,14 @@ in {
       MaxStartups = "10:30:100";
     };
   };
-  services.printing.enable = true; # Enable printer support
+  services.printing = {
+    enable = true;
+    drivers = [ pkgs.brlaser ];
+  };
+  services.avahi = {
+  enable = true;
+  nssmdns4 = true;
+};
   networking.modemmanager.enable = true;
   systemd.services.ModemManager = {
     enable = pkgs.lib.mkForce true;
@@ -282,7 +291,7 @@ in {
     gc = {
       automatic = true;
       dates = "monthly";
-      options = "--delete-older-than 30d";
+      options = "--delete-older-than 180d";
       # persistent = true; # (default is true; ensures missed runs happen later)
     };
   };
