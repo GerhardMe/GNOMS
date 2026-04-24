@@ -305,6 +305,10 @@ in {
   # ------------------------------------------------------------------------------------------
 
   # Monitor and usb connection watch:
+  services.udev.packages = with pkgs; [
+    segger-jlink-headless # installs 99-jlink.rules
+    (pkgs.nrfutil.withExtensions [ "nrfutil-device" ]) # installs 71-nrf.rules
+  ];
   services.udev.extraRules = ''
     ACTION=="add", SUBSYSTEM=="tty", TAG+="systemd", ENV{SYSTEMD_WANTS}="log-usb-event.service"
     ACTION=="change", SUBSYSTEM=="drm", TAG+="systemd", ENV{SYSTEMD_WANTS}="log-monitor-event.service"
@@ -364,7 +368,7 @@ in {
     picocom # (serial monitor)
     avrdude # (Arduino flashing)
     picotool # (Pico UF2 loading)
-    nrfutil # Nordic nRF flashing (modern CLI, replaces nrfjprog)
+    (pkgs.nrfutil.withExtensions [ "nrfutil-device" ]) # Nordic nRF flashing; device extension bundled to avoid NixOS FHS issues
     segger-jlink-headless # J-Link drivers/tools without Qt GUI
     arduino-cli # compiler for arduino
 
