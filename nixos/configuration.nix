@@ -341,6 +341,7 @@ in {
 
   # SYSTEM WIDE PROGRAMS
   nixpkgs.config.allowUnfree = true;
+  nixpkgs.config.segger-jlink.acceptLicense = true;
   environment.systemPackages = with pkgs; [
     config.boot.kernelPackages.nvidia_x11
 
@@ -363,6 +364,8 @@ in {
     picocom # (serial monitor)
     avrdude # (Arduino flashing)
     picotool # (Pico UF2 loading)
+    nrfutil # Nordic nRF flashing (modern CLI, replaces nrfjprog)
+    segger-jlink-headless # J-Link drivers/tools without Qt GUI
     arduino-cli # compiler for arduino
 
     # Coding resources:

@@ -1,4 +1,4 @@
-{ system, nixpkgs, home-manager, pkgs, ... }: {
+{ system, nixpkgs, config, home-manager, pkgs, ... }: {
 
   # ------------------------------------------------------------------------------------------
   # ----------------------------------------- SETTINGS ---------------------------------------
@@ -25,6 +25,13 @@
     desktop = "$HOME/workspaces";
     templates = "$HOME/.xdgdirs/templates";
   };
+
+  home.file.".config/gtk-3.0/bookmarks".text = ''
+    file://${config.home.homeDirectory}/downloads Downloads
+    file://${config.home.homeDirectory}/media/img Images
+    file://${config.home.homeDirectory}/media/vid Videos
+    file://${config.home.homeDirectory}/media/music Music
+  '';
 
   # ------------------------------------------------------------------------------------------
   # ----------------------------------------- SERVICES ---------------------------------------
@@ -96,13 +103,17 @@
     gtk.enable = true;
   };
 
-  gtk = {
-    enable = true;
-    iconTheme = {
-      name = "Papirus-Dark";
-      package = pkgs.papirus-icon-theme;
-    };
+gtk = {
+  enable = true;
+  iconTheme = {
+    name = "Papirus-Dark";
+    package = pkgs.papirus-icon-theme;
   };
+  theme = {
+    name = "Adwaita-dark";
+    package = pkgs.gnome-themes-extra;
+  };
+};
 
   # ------------------------------------------------------------------------------------------
   # ----------------------------------------- USER PROGRAMS ----------------------------------
