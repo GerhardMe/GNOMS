@@ -371,6 +371,7 @@ in {
     (pkgs.nrfutil.withExtensions [ "nrfutil-device" ]) # Nordic nRF flashing; device extension bundled to avoid NixOS FHS issues
     segger-jlink-headless # J-Link drivers/tools without Qt GUI
     arduino-cli # compiler for arduino
+    probe-rs-tools # RTT monitor + debug probe for Nordic/ARM bare-metal
 
     # Coding resources:
     python3

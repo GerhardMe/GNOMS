@@ -76,6 +76,40 @@ open_terminal() {
 	fi
 }
 
+open_rtt() {
+	# Open an RTT viewer for Nordic bare-metal firmware via probe-rs.
+	# probe-rs reads RTT output directly from RAM over the J-Link debug
+	# connection — no UART or serial port involved.
+	# probe-rs attach requires the ELF file to locate the RTT control block.
+	# The ELF path is saved by mcflash to /tmp/mcdev_elf.
+	local chip="${NRF_CHIP:-nRF54L15}"
+
+	local elf=""
+	if [[ -f /tmp/mcdev_elf ]]; then
+		elf="$(cat /tmp/mcdev_elf)"
+	fi
+
+	if [[ -z "$elf" || ! -f "$elf" ]]; then
+		log "no ELF found at /tmp/mcdev_elf — flash first to enable RTT"
+		notify "Nordic DK" "Flash firmware first to enable RTT viewer"
+		return 0
+	fi
+
+	local cmd="probe-rs attach --chip $chip '$elf'; echo '--- RTT session ended, press enter to close ---'; read"
+
+	if have wezterm; then
+		wezterm start --always-new-process -- bash -lc "$cmd" &
+	elif have xterm; then
+		xterm -T "RTT ($chip)" -e bash -lc "$cmd" &
+	elif have gnome-terminal; then
+		gnome-terminal --title "RTT ($chip)" -- bash -lc "$cmd" &
+	elif have konsole; then
+		konsole --title "RTT ($chip)" -e bash -lc "$cmd" &
+	else
+		eval "$cmd"
+	fi
+}
+
 # ===================== Main =====================
 
 main() {
@@ -145,10 +179,21 @@ main() {
 	*) notify "Serial Device" "$PORT" ;;
 	esac
 
-	# Open terminal (skip for standalone J-Link - no target UART)
-	if [[ "$TYPE" != "JLINK" ]]; then
+	# Open terminal — method depends on device type
+	case "$TYPE" in
+	NORDIC_DK | NORDIC)
+		# Nordic bare-metal uses RTT for output, not UART.
+		# RTT only works after firmware has been flashed — skip on bare plug-in.
+		# mcflash opens the RTT window directly after a successful flash.
+		log "nordic: RTT viewer launched by mcflash after flashing"
+		;;
+	JLINK)
+		# Standalone J-Link with no known target — nothing to open
+		;;
+	*)
 		open_terminal "$UART_PORT" "$DEFAULT_BAUD"
-	fi
+		;;
+	esac
 }
 
 main "$@"

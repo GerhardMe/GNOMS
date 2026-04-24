@@ -230,22 +230,40 @@ hex)
 
 		# nrfutil device program syntax:
 		# --firmware: the hex file
-		# --options: verify=VERIFY_READ, chip_erase_mode=ERASE_RANGES (sector erase)
-		nrfutil device program \
-			--firmware "$FILE" \
-			--options verify=VERIFY_READ,chip_erase_mode=ERASE_RANGES_TOUCHED_BY_FIRMWARE \
-			"$@"
+		# --options: verify=VERIFY_READ, chip_erase_mode=ERASE_RANGES_TOUCHED_BY_FIRMWARE
+		nrf_flash() {
+			nrfutil device program \
+				--firmware "$FILE" \
+				--options verify=VERIFY_READ,chip_erase_mode=ERASE_RANGES_TOUCHED_BY_FIRMWARE \
+				"$@"
+		}
+
+		if ! nrf_flash 2>/tmp/mcflash_nrf_err; then
+			cat /tmp/mcflash_nrf_err
+			if grep -qi "protection\|protected\|access port" /tmp/mcflash_nrf_err; then
+				echo ""
+				echo "Device has readback protection enabled."
+				echo "Recovery will erase all flash on the chip before flashing."
+				printf "Recover and flash? [y/N] "
+				read -r answer
+				if [[ "${answer,,}" == "y" ]]; then
+					log "[NRF] recovering device (full erase)..."
+					nrfutil device recover || die "recovery failed"
+					log "[NRF] retrying flash..."
+					nrf_flash || die "flash failed after recovery"
+				else
+					die "aborted by user"
+				fi
+			else
+				die "flash failed"
+			fi
+		fi
 
 		# Reset the device to start the new firmware
 		nrfutil device reset || true
 
-		# Wait for device to reset and re-enumerate
+		# Wait for device to settle
 		sleep 1
-
-		# Find UART port for serial output
-		if [[ "$TYPE" == "NORDIC_DK" ]]; then
-			NEWPORT="$(find_nordic_uart "${JLINK_PORT:-$PORT}" || true)"
-		fi
 	else
 		# Arduino AVR path: use avrdude
 		have avrdude || die "avrdude not installed"
@@ -273,18 +291,47 @@ py)
 	;;
 esac
 
-# ===================== Post-Flash: Restart REPL =====================
+# ===================== Post-Flash =====================
 
-POSTPORT="$PORT"
-if [[ -n "${NEWPORT:-}" && -e "$NEWPORT" ]]; then
-	POSTPORT="$NEWPORT"
+if [[ "$TYPE" == "NORDIC_DK" || "$TYPE" == "NORDIC" || "$TYPE" == "JLINK" ]] && [[ "$EXT" == "hex" ]]; then
+	# Nordic bare-metal: open RTT viewer instead of a serial terminal.
+	# probe-rs attach needs the ELF (not the hex) to locate the RTT control block in RAM.
+	ELF="${FILE%.hex}.elf"
+	if [[ ! -f "$ELF" ]]; then
+		log "[NRF] no ELF found at $ELF — skipping RTT (needed for probe-rs attach)"
+	elif have probe-rs; then
+		CHIP="${NRF_CHIP:-nRF54L15}"
+		log "[NRF] opening RTT on $CHIP"
+		# Save absolute ELF path so microcontroller-connect.sh can reuse it on replug
+		realpath "$ELF" >/tmp/mcdev_elf
+		# Brief delay to let nrfutil release the J-Link before probe-rs connects
+		sleep 2
+		ABS_ELF="$(cat /tmp/mcdev_elf)"
+		RTT_CMD="probe-rs attach --chip $CHIP '$ABS_ELF'; echo '--- RTT ended, press enter ---'; read"
+		if have wezterm; then
+			wezterm start --always-new-process -- bash -lc "$RTT_CMD" &
+		elif have xterm; then
+			xterm -T "RTT ($CHIP)" -e bash -lc "$RTT_CMD" &
+		elif have gnome-terminal; then
+			gnome-terminal --title "RTT ($CHIP)" -- bash -lc "$RTT_CMD" &
+		elif have konsole; then
+			konsole --title "RTT ($CHIP)" -e bash -lc "$RTT_CMD" &
+		else
+			bash -lc "$RTT_CMD" &
+		fi
+	else
+		log "[NRF] probe-rs not found — install it for RTT output"
+	fi
+else
+	# All other devices: MicroPython REPL / serial terminal
+	POSTPORT="$PORT"
+	if [[ -n "${NEWPORT:-}" && -e "$NEWPORT" ]]; then
+		POSTPORT="$NEWPORT"
+	fi
+
+	mpy_force_start "$POSTPORT"
+	log "[post] starting connector on $POSTPORT"
+	restart_repl "$POSTPORT"
 fi
-
-# Kick MicroPython so /main.py runs (safe no-op on non-MPY)
-mpy_force_start "$POSTPORT"
-
-# Launch terminal on the right port
-log "[post] starting connector on $POSTPORT"
-restart_repl "$POSTPORT"
 
 echo "[ok] done."
