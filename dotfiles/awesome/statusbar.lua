@@ -26,16 +26,21 @@ local color_bad = "#ff0000"
 
 -- Helper to make a widget with icon and text
 local function icon_text(icon, widget)
-	local iconbox = wibox.widget({
-		markup = string.format("<span font='%s'>%s</span>", beautiful.font, icon),
-		widget = wibox.widget.textbox,
-	})
-	return wibox.widget({
-		iconbox,
-		widget,
-		layout = wibox.layout.fixed.horizontal,
-		spacing = 4,
-	})
+	local iconbox =
+		wibox.widget(
+		{
+			markup = string.format("<span font='%s'>%s</span>", beautiful.font, icon),
+			widget = wibox.widget.textbox
+		}
+	)
+	return wibox.widget(
+		{
+			iconbox,
+			widget,
+			layout = wibox.layout.fixed.horizontal,
+			spacing = 4
+		}
+	)
 end
 
 ------------------------------------------------------------------------------------------------------------
@@ -51,7 +56,7 @@ local function update_net_combined()
 		mobile_text = "",
 		eth_done = false,
 		wifi_done = false,
-		mobile_done = false,
+		mobile_done = false
 	}
 
 	local function try_display()
@@ -68,8 +73,7 @@ local function update_net_combined()
 			end
 
 			if #parts == 0 then
-				network.markup =
-					string.format("<span foreground='%s' font='%s'>󰖪 </span>", color_bad, beautiful.font)
+				network.markup = string.format("<span foreground='%s' font='%s'>󰖪 </span>", color_bad, beautiful.font)
 			else
 				local final = table.concat(parts, " ")
 				network.markup = string.format("<span font='%s'>%s</span>", beautiful.font, final)
@@ -81,32 +85,38 @@ local function update_net_combined()
 	local candidate_dev = nil
 
 	-- Step 1: Get candidate Ethernet interface name
-	awful.spawn.easy_async_with_shell([[ip -o link | awk -F': ' '/^[0-9]+: en/ {print $2}' | head -n1]], function(dev)
-		dev = dev:gsub("%s+", "")
-		candidate_dev = dev
+	awful.spawn.easy_async_with_shell(
+		[[ip -o link | awk -F': ' '/^[0-9]+: en/ {print $2}' | head -n1]],
+		function(dev)
+			dev = dev:gsub("%s+", "")
+			candidate_dev = dev
 
-		if dev == "" then
-			result.eth_text = ""
-			result.eth_done = true
-			try_display()
-			return
-		end
-
-		-- Step 2: Check if interface is UP
-		awful.spawn.easy_async_with_shell("ip link show " .. dev, function(output)
-			local has_state_up = output:match("state UP")
-			local has_lower_up = output:match("LOWER_UP")
-
-			if has_state_up and has_lower_up then
-				result.eth_text = string.format("<span foreground='%s'>🔌 Ethernet</span>", color_good)
-			else
+			if dev == "" then
 				result.eth_text = ""
+				result.eth_done = true
+				try_display()
+				return
 			end
 
-			result.eth_done = true
-			try_display()
-		end)
-	end)
+			-- Step 2: Check if interface is UP
+			awful.spawn.easy_async_with_shell(
+				"ip link show " .. dev,
+				function(output)
+					local has_state_up = output:match("state UP")
+					local has_lower_up = output:match("LOWER_UP")
+
+					if has_state_up and has_lower_up then
+						result.eth_text = string.format("<span foreground='%s'>🔌 Ethernet</span>", color_good)
+					else
+						result.eth_text = ""
+					end
+
+					result.eth_done = true
+					try_display()
+				end
+			)
+		end
+	)
 
 	-- WiFi
 	awful.spawn.easy_async_with_shell(
@@ -143,62 +153,75 @@ local function update_net_combined()
 			end
 
 			-- LTE — Step 2: Query modem
-			awful.spawn.easy_async_with_shell("mmcli -m " .. modem_path, function(stdout)
-				stdout = stdout:gsub("\27%[[%d;]*m", "")
+			awful.spawn.easy_async_with_shell(
+				"mmcli -m " .. modem_path,
+				function(stdout)
+					stdout = stdout:gsub("\27%[[%d;]*m", "")
 
-				local connected = stdout:match("Status.-\n.-state:%s+(%w+)")
-				local signal = stdout:match("signal quality:%s+(%d+)")
-				local tech = stdout:match("access tech:%s+([^\n]+)")
+					local connected = stdout:match("Status.-\n.-state:%s+(%w+)")
+					local signal = stdout:match("signal quality:%s+(%d+)")
+					local tech = stdout:match("access tech:%s+([^\n]+)")
 
-				if connected == "connected" and signal and tech then
-					tech = tech:lower():gsub("^%s+", ""):gsub("%s+$", "")
-					if tech == "lte" then
-						tech = "4G"
-					elseif tech:match("hspa") or tech == "umts" then
-						tech = "3G"
-					elseif tech == "edge" or tech == "gprs" then
-						tech = "2G"
-					elseif tech:match("5g") then
-						tech = "5G"
+					if connected == "connected" and signal and tech then
+						tech = tech:lower():gsub("^%s+", ""):gsub("%s+$", "")
+						if tech == "lte" then
+							tech = "4G"
+						elseif tech:match("hspa") or tech == "umts" then
+							tech = "3G"
+						elseif tech == "edge" or tech == "gprs" then
+							tech = "2G"
+						elseif tech:match("5g") then
+							tech = "5G"
+						else
+							tech = "E"
+						end
+
+						local signal_num = tonumber(signal)
+						local color = beautiful.fg_normal
+						if signal_num < 10 then
+							color = color_bad
+						elseif signal_num < 30 then
+							color = color_degraded
+						else
+							color = color_good
+						end
+
+						result.mobile_text = string.format("<span foreground='%s'>%s</span>", color, tech)
 					else
-						tech = "E"
+						result.mobile_text = "" -- not connected, don't display
 					end
 
-					local signal_num = tonumber(signal)
-					local color = beautiful.fg_normal
-					if signal_num < 10 then
-						color = color_bad
-					elseif signal_num < 30 then
-						color = color_degraded
-					else
-						color = color_good
-					end
-
-					result.mobile_text = string.format("<span foreground='%s'>%s</span>", color, tech)
-				else
-					result.mobile_text = "" -- not connected, don't display
+					result.mobile_done = true
+					try_display()
 				end
-
-				result.mobile_done = true
-				try_display()
-			end)
+			)
 		end
 	)
 end
 
-gears.timer({ timeout = 5, autostart = true, callback = update_net_combined })
+gears.timer({timeout = 5, autostart = true, callback = update_net_combined})
 gears.timer.delayed_call(update_net_combined)
 
-network:buttons(gears.table.join(
-	awful.button({}, 1, function()
-		awful.spawn(wez("sleep 0.2 && env NEWT_COLORS='root=,default' nmtui", { class = "popup" }), false)
-		awful.spawn.with_shell("nm-applet & sleep 30 && pkill nm-applet")
-	end),
-	awful.button({}, 3, function()
-		awful.spawn(wez("sudo nethogs; exec bash"))
-		awful.spawn(wez("speedtest; exec bash"))
-	end)
-))
+network:buttons(
+	gears.table.join(
+		awful.button(
+			{},
+			1,
+			function()
+				awful.spawn(wez("sleep 0.2 && env NEWT_COLORS='root=,default' nmtui", {class = "popup"}), false)
+				awful.spawn.with_shell("nm-applet & sleep 30 && pkill nm-applet")
+			end
+		),
+		awful.button(
+			{},
+			3,
+			function()
+				awful.spawn(wez("sudo nethogs; exec bash"))
+				awful.spawn(wez("speedtest; exec bash"))
+			end
+		)
+	)
+)
 
 ------------------------------------------------------------------------------------------------------------
 ------------------------------------------------- BLUETOOTH ------------------------------------------------
@@ -207,40 +230,48 @@ network:buttons(gears.table.join(
 local bluetooth = wibox.widget.textbox()
 
 local function update_bluetooth()
-	awful.spawn.easy_async_with_shell([[bluetoothctl show; bluetoothctl devices Connected]], function(stdout)
-		local powered = stdout:match("Powered: yes")
-		local connected = select(2, stdout:gsub("Device", "")) - 1
+	awful.spawn.easy_async_with_shell(
+		[[hciconfig -a; hcitool dev | sed '1d' | wc -l]],
+		function(stdout)
+			local powered = stdout:match("UP")
+			local connected = tonumber(stdout:match("(%d+)%s*$")) or 0
 
-		local icon_char = powered and "󰂯" or "󰂲"
-		local color = not powered and color_degraded or (connected > 0 and color_good or beautiful.fg_normal)
+			local icon_char = powered and "󰂯" or "󰂲"
+			local color = not powered and color_degraded or (connected > 0 and color_good or beautiful.fg_normal)
 
-		local icon_markup = string.format(
-			"<span font='%s' foreground='%s' size='13pt' rise='3000'>%s</span>",
-			beautiful.font,
-			color,
-			icon_char
-		)
+			local icon_markup =
+				string.format("<span font='%s' foreground='%s' size='13pt' rise='3000'>%s</span>", beautiful.font, color, icon_char)
 
-		local number_markup = ""
-		if powered and connected > 0 then
-			number_markup =
-				string.format("<span font='%s' foreground='%s'> %d</span>", beautiful.font, color, connected)
+			local number_markup = ""
+			if powered and connected > 0 then
+				number_markup = string.format("<span font='%s' foreground='%s'> %d</span>", beautiful.font, color, connected)
+			end
+
+			bluetooth.markup = icon_markup .. number_markup
 		end
-
-		bluetooth.markup = icon_markup .. number_markup
-	end)
+	)
 end
 
-gears.timer({
-	timeout = 3,
-	autostart = true,
-	callback = update_bluetooth,
-})
+gears.timer(
+	{
+		timeout = 3,
+		autostart = true,
+		callback = update_bluetooth
+	}
+)
 gears.timer.delayed_call(update_bluetooth)
 
-bluetooth:buttons(gears.table.join(awful.button({}, 1, function()
-	awful.spawn(wez("bluetuith", { class = "popup" }), false)
-end)))
+bluetooth:buttons(
+	gears.table.join(
+		awful.button(
+			{},
+			1,
+			function()
+				awful.spawn(wez("bluetuith", {class = "popup"}), false)
+			end
+		)
+	)
+)
 
 ------------------------------------------------------------------------------------------------------------
 ------------------------------------------------- SYS MONITOR ----------------------------------------------
@@ -257,10 +288,10 @@ local function update_sys()
 	local u, n, s, i = line:match("cpu%s+(%d+)%s+(%d+)%s+(%d+)%s+(%d+)")
 	u, n, s, i = tonumber(u), tonumber(n), tonumber(s), tonumber(i)
 
-	local prev = cpu_prev or { u = u, n = n, s = s, i = i }
+	local prev = cpu_prev or {u = u, n = n, s = s, i = i}
 	local dt = (u + n + s + i) - (prev.u + prev.n + prev.s + prev.i)
 	local da = (u + n + s) - (prev.u + prev.n + prev.s)
-	cpu_prev = { u = u, n = n, s = s, i = i }
+	cpu_prev = {u = u, n = n, s = s, i = i}
 
 	local cpu_usage = (dt > 0) and math.floor(da / dt * 100 + 0.5) or 0
 	local cpu_color = beautiful.fg_normal
@@ -297,7 +328,8 @@ local function update_sys()
 	end
 
 	-- === Update widget ===
-	sys.markup = string.format(
+	sys.markup =
+		string.format(
 		"<span font='%s'><span foreground='%s'>%02d%% </span>  <span foreground='%s'>%d/%d </span></span>",
 		beautiful.font,
 		cpu_color,
@@ -308,11 +340,19 @@ local function update_sys()
 	)
 end
 
-gears.timer({ timeout = 3, autostart = true, callback = update_sys })
+gears.timer({timeout = 3, autostart = true, callback = update_sys})
 gears.timer.delayed_call(update_sys)
-sys:buttons(gears.table.join(awful.button({}, 1, function()
-	awful.spawn(wez("htop"))
-end)))
+sys:buttons(
+	gears.table.join(
+		awful.button(
+			{},
+			1,
+			function()
+				awful.spawn(wez("htop"))
+			end
+		)
+	)
+)
 
 ------------------------------------------------------------------------------------------------------------
 ------------------------------------------------- DISK -----------------------------------------------------
@@ -336,23 +376,34 @@ local function parse_gb(avail_str)
 	end
 end
 local function update_disk()
-	awful.spawn.easy_async_with_shell("df -h / | awk 'NR==2 {print $4}'", function(stdout)
-		local avail = stdout:gsub("%s+", "")
-		local avail_gb = parse_gb(avail)
-		local color = beautiful.fg_normal
-		if avail_gb < 10 then
-			color = color_bad
-		elseif avail_gb < 100 then
-			color = color_degraded
+	awful.spawn.easy_async_with_shell(
+		"df -h / | awk 'NR==2 {print $4}'",
+		function(stdout)
+			local avail = stdout:gsub("%s+", "")
+			local avail_gb = parse_gb(avail)
+			local color = beautiful.fg_normal
+			if avail_gb < 10 then
+				color = color_bad
+			elseif avail_gb < 100 then
+				color = color_degraded
+			end
+			disk.markup = string.format("<span font='%s' foreground='%s'>%sB 󰉋 </span>", beautiful.font, color, avail)
 		end
-		disk.markup = string.format("<span font='%s' foreground='%s'>%sB 󰉋 </span>", beautiful.font, color, avail)
-	end)
+	)
 end
-gears.timer({ timeout = 601, autostart = true, callback = update_disk })
+gears.timer({timeout = 601, autostart = true, callback = update_disk})
 gears.timer.delayed_call(update_disk)
-disk:buttons(gears.table.join(awful.button({}, 1, function()
-	awful.spawn("baobab", false)
-end)))
+disk:buttons(
+	gears.table.join(
+		awful.button(
+			{},
+			1,
+			function()
+				awful.spawn("baobab", false)
+			end
+		)
+	)
+)
 
 ------------------------------------------------------------------------------------------------------------
 ------------------------------------------------- VOLUME ---------------------------------------------------
@@ -373,9 +424,17 @@ local function update_volume()
 		end
 	)
 end
-volume:buttons(gears.table.join(awful.button({}, 1, function()
-	awful.spawn("pavucontrol", false)
-end)))
+volume:buttons(
+	gears.table.join(
+		awful.button(
+			{},
+			1,
+			function()
+				awful.spawn("pavucontrol", false)
+			end
+		)
+	)
+)
 _G.update_volume_icon = update_volume
 gears.timer.delayed_call(update_volume)
 
@@ -386,8 +445,8 @@ gears.timer.delayed_call(update_volume)
 local battery = wibox.widget.textbox()
 local function update_battery()
 	awful.spawn.easy_async_with_shell(
-		"bash -c 'STATUS=$(cat /sys/class/power_supply/BAT*/status 2>/dev/null); "
-			.. 'CAPACITY=$(cat /sys/class/power_supply/BAT*/capacity 2>/dev/null); echo "$STATUS $CAPACITY"\'',
+		"bash -c 'STATUS=$(cat /sys/class/power_supply/BAT*/status 2>/dev/null); " ..
+			'CAPACITY=$(cat /sys/class/power_supply/BAT*/capacity 2>/dev/null); echo "$STATUS $CAPACITY"\'',
 		function(stdout)
 			local status, percent_str = stdout:match("(%a+)%s+(%d+)")
 			local percent = tonumber(percent_str)
@@ -433,7 +492,7 @@ local function update_battery()
 	)
 end
 
-gears.timer({ timeout = 10, autostart = true, callback = update_battery })
+gears.timer({timeout = 10, autostart = true, callback = update_battery})
 gears.timer.delayed_call(update_battery)
 
 ------------------------------------------------------------------------------------------------------------
@@ -444,25 +503,35 @@ local clock = wibox.widget.textbox()
 local function update_clock()
 	clock.markup = string.format("<span font='%s'>%s</span>", beautiful.font, os.date("%d.%m  %b %H:%M  "))
 end
-gears.timer({ timeout = 60, autostart = true, callback = update_clock })
+gears.timer({timeout = 60, autostart = true, callback = update_clock})
 gears.timer.delayed_call(update_clock)
-clock:buttons(gears.table.join(awful.button({}, 1, function()
-	awful.spawn("firefox --new-window https://calendar.google.com/calendar", false)
-end)))
+clock:buttons(
+	gears.table.join(
+		awful.button(
+			{},
+			1,
+			function()
+				awful.spawn("firefox --new-window https://calendar.google.com/calendar", false)
+			end
+		)
+	)
+)
 
 ------------------------------------------------------------------------------------------------------------
 ------------------------------------------------- SEPERATOR ------------------------------------------------
 ------------------------------------------------------------------------------------------------------------
 
 local function sep()
-	return wibox.widget({
-		markup = string.format(
-			"<span font='%s' foreground='%s' size='13pt' rise='9000'> ❮ </span>",
-			beautiful.font,
-			"#8700ff"
-		),
-		widget = wibox.widget.textbox,
-	})
+	return wibox.widget(
+		{
+			markup = string.format(
+				"<span font='%s' foreground='%s' size='13pt' rise='9000'> ❮ </span>",
+				beautiful.font,
+				"#8700ff"
+			),
+			widget = wibox.widget.textbox
+		}
+	)
 end
 
 ------------------------------------------------------------------------------------------------------------
@@ -484,7 +553,7 @@ statusbar.widget = {
 	icon_text("", battery),
 	sep(),
 	icon_text("", clock),
-	sep(),
+	sep()
 }
 
 return statusbar

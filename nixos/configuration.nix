@@ -383,7 +383,7 @@ in {
     stylua
     black
     shfmt
-    nodePackages.prettier
+    prettier
     jq
 
     # Small programs:
@@ -411,8 +411,8 @@ in {
     xclip # clipboard manager
     htop # program control pannel
     libnotify # notifyer backend
-    xorg.xev # show keycodes
-    xorg.xmodmap # list keycodes
+    xev # show keycodes
+    xmodmap # list keycodes
     imagemagick # Blur images
     xdotool # for scripts flashing to microcontollers
     wget # download files from web

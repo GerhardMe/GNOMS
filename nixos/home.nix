@@ -17,6 +17,7 @@
   # Custom directories
   xdg.userDirs = {
     enable = true;
+    setSessionVariables = false;
     download = "$HOME/downloads";
     pictures = "$HOME/media/img";
     videos = "$HOME/media/vid";
@@ -113,6 +114,7 @@ gtk = {
     name = "Adwaita-dark";
     package = pkgs.gnome-themes-extra;
   };
+  gtk4.theme = null;
 };
 
   # ------------------------------------------------------------------------------------------
@@ -139,6 +141,8 @@ gtk = {
     defaultEditor = true;
     viAlias = true;
     vimAlias = true;
+    withRuby = false;
+    withPython3 = false;
   };
 
   # ------------------------------------------------------------------------------------------
@@ -151,6 +155,7 @@ gtk = {
       name = "{{github_name}}";
       email = "{{github_email}}";
     };
+    signing.format = null;
   };
 
   # ------------------------------------------------------------------------------------------
@@ -160,6 +165,7 @@ gtk = {
   programs = {
     firefox = {
       enable = true;
+      configPath = "${config.xdg.configHome}/mozilla/firefox";
       languagePacks = [ "en-UK" "no" ];
 
       # ---- POLICIES ----
@@ -230,12 +236,37 @@ gtk = {
           };
         };
 
+        DefaultSearchProviderEnabled = true;
+        DefaultSearchProviderName = "DuckDuckGo";
+        DefaultSearchProviderSearchURL = "https://duckduckgo.com/?q={searchTerms}";
+        DefaultSearchProviderSuggestURL = "https://duckduckgo.com/ac/?q={searchTerms}&type=list";
+
         # ---- PREFERENCES ----
         # Check about:config for options.
         Preferences = {
           "browser.contentblocking.category" = {
             Value = "strict";
             Status = "locked";
+          };
+          "browser.tabs.inTitlebar" = {
+            Value = 0;
+            Status = "default";
+          };
+          "browser.newtabpage.activity-stream.feeds.topsites" = {
+            Value = false;
+            Status = "default";
+          };
+          "browser.newtabpage.activity-stream.showSponsoredTopSites" = {
+            Value = false;
+            Status = "default";
+          };
+          "sidebar.revamp" = {
+            Value = true;
+            Status = "default";
+          };
+          "sidebar.verticalTabs" = {
+            Value = true;
+            Status = "default";
           };
         };
       };

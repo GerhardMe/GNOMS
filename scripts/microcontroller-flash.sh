@@ -167,16 +167,54 @@ fi
 
 [[ -n "${PORT:-}" ]] || die "no PORT found (env or $STATE_FILE)"
 [[ -n "${TYPE:-}" ]] || die "no TYPE found (env or $STATE_FILE)"
-[[ -e "$PORT" ]] || die "port not present: $PORT"
-is_ignored_port "$PORT" && die "refusing to flash ignored device: $PORT"
-port_rw_ok "$PORT" || die "no permission on $PORT (need rw)"
+
+# ===================== Standalone J-Link Fallback =====================
+# The J-Link EDU Mini (and any standalone J-Link) exposes no TTY, so the
+# udev rule (SUBSYSTEM=="tty") never fires, microcontroller-connect.sh never
+# runs, and STATE_FILE is never written.  If PORT/TYPE are still unset after
+# the state-load block above, try to find a raw J-Link via nrfutil or /sys.
+
+if [[ -z "${PORT:-}" || -z "${TYPE:-}" ]]; then
+	if have nrfutil; then
+		if nrfutil device list 2>/dev/null | grep -q "jlink"; then
+			log "standalone J-Link detected via nrfutil — using virtual port"
+			PORT="JLINK:usb"
+			TYPE="JLINK"
+		else
+			die "no device info and no J-Link found by nrfutil (is it connected?)"
+		fi
+	else
+		# nrfutil unavailable — scan /sys directly for SEGGER VID 1366
+		segger_dev=$(grep -rl "1366" /sys/bus/usb/devices/*/idVendor 2>/dev/null | head -n1 || true)
+		if [[ -n "$segger_dev" ]]; then
+			log "SEGGER device found in /sys (nrfutil unavailable) — using virtual port"
+			PORT="JLINK:usb"
+			TYPE="JLINK"
+		else
+			die "no device info — plug in the J-Link and run microcontroller-connect.sh, or install nrfutil"
+		fi
+	fi
+fi
+
+# ===================== Serial-Port Checks =====================
+# Skip all TTY-specific checks for virtual J-Link ports (no serial node exists).
+
+if [[ "$PORT" != JLINK:* ]]; then
+	[[ -e "$PORT" ]] || die "port not present: $PORT"
+	is_ignored_port "$PORT" && die "refusing to flash ignored device: $PORT"
+	port_rw_ok "$PORT" || die "no permission on $PORT (need rw)"
+else
+	log "virtual J-Link port — skipping serial-port checks"
+fi
 
 EXT="${FILE##*.}"
 EXT="${EXT,,}"
 
-# Free the line before flashing
-close_users_of_port "$PORT"
-wait_until_free "$PORT" || die "port is still busy: $PORT"
+# Free the line before flashing (no-op for virtual J-Link ports)
+if [[ "$PORT" != JLINK:* ]]; then
+	close_users_of_port "$PORT"
+	wait_until_free "$PORT" || die "port is still busy: $PORT"
+fi
 
 # ===================== Flash by Extension =====================
 
@@ -222,8 +260,16 @@ hex)
 		# so no runtime install or patching is needed.
 		have nrfutil || die "nrfutil not installed"
 
+		# Resolve J-Link serial number when flashing an external target.
+		# --serial-number tells nrfutil which J-Link to use; without it nrfutil
+		# picks the first device it finds — which for a DK is always the onboard
+		# chip, regardless of --via-jlink intent.
+		SNR=""
 		if [[ "$VIA_JLINK" -eq 1 ]]; then
-			log "[NRF] flashing EXTERNAL target via J-Link"
+			[[ -n "${JLINK_PORT:-}" ]] || die "--via-jlink: JLINK_PORT not set (plug in DK and run microcontroller-connect.sh)"
+			SNR="$(get_jlink_serial "$JLINK_PORT" || true)"
+			[[ -n "$SNR" ]] || die "--via-jlink: could not read J-Link serial from udev (JLINK_PORT=$JLINK_PORT)"
+			log "[NRF] flashing EXTERNAL target via J-Link serial $SNR"
 		else
 			log "[NRF] flashing DK onboard chip"
 		fi
@@ -231,10 +277,12 @@ hex)
 		# nrfutil device program syntax:
 		# --firmware: the hex file
 		# --options: verify=VERIFY_READ, chip_erase_mode=ERASE_RANGES_TOUCHED_BY_FIRMWARE
+		# --serial-number: J-Link serial (only when targeting external via --via-jlink)
 		nrf_flash() {
 			nrfutil device program \
 				--firmware "$FILE" \
 				--options verify=VERIFY_READ,chip_erase_mode=ERASE_RANGES_TOUCHED_BY_FIRMWARE \
+				${SNR:+--serial-number "$SNR"} \
 				"$@"
 		}
 
@@ -248,7 +296,7 @@ hex)
 				read -r answer
 				if [[ "${answer,,}" == "y" ]]; then
 					log "[NRF] recovering device (full erase)..."
-					nrfutil device recover || die "recovery failed"
+					nrfutil device recover ${SNR:+--serial-number "$SNR"} || die "recovery failed"
 					log "[NRF] retrying flash..."
 					nrf_flash || die "flash failed after recovery"
 				else
@@ -260,10 +308,12 @@ hex)
 		fi
 
 		# Reset the device to start the new firmware
-		nrfutil device reset || true
+		nrfutil device reset ${SNR:+--serial-number "$SNR"} || true
 
 		# Wait for device to settle
 		sleep 1
+
+		notify "J-Link Flash" "Flashed $(basename "$FILE")"
 	else
 		# Arduino AVR path: use avrdude
 		have avrdude || die "avrdude not installed"
