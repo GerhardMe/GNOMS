@@ -127,7 +127,8 @@ save_visible_tags() {
 # Surgical per-binary patches that can't be solved cleanly in Nix.
 # Add new entries here as needed. All fixes must be idempotent.
 hacky_fixes() {
-	success "No hacky fixes needed"
+	# home-manager fails if a .backup file already exists at the backup destination
+	find "$DOT/nvim" -name "*.backup" -delete 2>/dev/null && success "Cleared stale nvim .backup files"
 }
 
 # -------------------- Operations --------------------
@@ -207,6 +208,9 @@ rebuild() {
 }
 
 update() {
+	step "Parsing local config…"
+	parse_config
+
 	step "Updating flake.lock in $TARGET_DIR…"
 	sudo nix flake update --flake "$TARGET_DIR"
 
@@ -214,6 +218,10 @@ update() {
 	sudo cp -f "$TARGET_DIR/flake.lock" "$REPO_DIR/flake.lock"
 	sudo chown "$USER:users" "$REPO_DIR/flake.lock"
 	success "Flake.lock updated and synced back."
+
+	step "Building updated packages (no activation)…"
+	sudo nixos-rebuild build --flake "$TARGET_DIR#${CONFIG[hostname]}" 2>&1 | tee >(grep --color error >&2) || false
+	success "Build complete. Run 'reconfigure rebuild' to activate."
 }
 
 upgrade() {

@@ -189,6 +189,8 @@ in {
   systemd.services.ModemManager = {
     enable = pkgs.lib.mkForce true;
     wantedBy = [ "multi-user.target" "network.target" ];
+    restartIfChanged = false;
+    serviceConfig.TimeoutStopSec = 3;
   };
   networking.firewall = {
     enable = true;
@@ -298,7 +300,7 @@ in {
   boot.loader.grub.configurationLimit = 10;
 
   system.stateVersion = "24.11"; # apparantly important. ¯\_(ツ)_/¯
-  home-manager.backupFileExtension = ".backup";
+  home-manager.backupFileExtension = "backup";
 
   # ------------------------------------------------------------------------------------------
   # ----------------------------------------- SERVICES ---------------------------------------

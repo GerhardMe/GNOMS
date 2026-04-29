@@ -171,6 +171,8 @@ gtk = {
       # ---- POLICIES ----
       # Check about:policies#documentation for options.
       policies = {
+        AppAutoUpdate = false;
+        BackgroundAppUpdate = false;
         DisableTelemetry = true;
         DisableFirefoxStudies = true;
         EnableTrackingProtection = {
@@ -189,6 +191,7 @@ gtk = {
         DisplayBookmarksToolbar = "never"; # alternatives: "always" or "newtab"
         DisplayMenuBar =
           "default-off"; # alternatives: "always", "never" or "default-on"
+        OfferToSaveLogins = false;
         SearchBar = "unified"; # alternative: "separate"
         PasswordManagerEnabled = false;
 
@@ -236,11 +239,6 @@ gtk = {
           };
         };
 
-        DefaultSearchProviderEnabled = true;
-        DefaultSearchProviderName = "DuckDuckGo";
-        DefaultSearchProviderSearchURL = "https://duckduckgo.com/?q={searchTerms}";
-        DefaultSearchProviderSuggestURL = "https://duckduckgo.com/ac/?q={searchTerms}&type=list";
-
         # ---- PREFERENCES ----
         # Check about:config for options.
         Preferences = {
@@ -268,6 +266,15 @@ gtk = {
             Value = true;
             Status = "default";
           };
+        };
+      };
+
+      profiles.default = {
+        isDefault = true;
+        search = {
+          force          = true;
+          default        = "ddg";
+          privateDefault = "ddg";
         };
       };
     };
