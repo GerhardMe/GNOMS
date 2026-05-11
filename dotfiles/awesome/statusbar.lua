@@ -231,7 +231,7 @@ local bluetooth = wibox.widget.textbox()
 
 local function update_bluetooth()
 	awful.spawn.easy_async_with_shell(
-		[[hciconfig -a; hcitool dev | sed '1d' | wc -l]],
+		[[hciconfig -a; hcitool con | sed '1d' | wc -l]],
 		function(stdout)
 			local powered = stdout:match("UP")
 			local connected = tonumber(stdout:match("(%d+)%s*$")) or 0
