@@ -715,6 +715,21 @@ for i = 1, 9 do
 	)
 end
 
+globalkeys =
+	gears.table.join(
+	globalkeys,
+	awful.key(
+		{modkey, "Shift"},
+		"f",
+		function()
+			if _G.toggle_fan then
+				_G.toggle_fan()
+			end
+		end,
+		{description = "toggle fan silent mode", group = "system"}
+	)
+)
+
 root.keys(globalkeys)
 
 ------------------------------------------------------------------------------------------------------------

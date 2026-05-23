@@ -57,6 +57,7 @@ in {
     [ "nouveau" "nvidiafb" ]; # to get eGPU to work
   boot.extraModprobeConfig = ''
     options nvidia-drm modeset=1
+    options thinkpad_acpi fan_control=1
   '';
   swapDevices = [{
     device = "/var/lib/swapfile";
@@ -223,6 +224,10 @@ in {
       {
         command = "${pkgs.systemd}/bin/systemctl stop sshd";
         options = [ "NOPASSWD" ]; # Not shure if nessesary
+      }
+      {
+        command = "${pkgs.coreutils}/bin/tee /proc/acpi/ibm/fan";
+        options = [ "NOPASSWD" ];
       }
     ];
   }];

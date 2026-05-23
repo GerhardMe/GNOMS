@@ -439,6 +439,97 @@ _G.update_volume_icon = update_volume
 gears.timer.delayed_call(update_volume)
 
 ------------------------------------------------------------------------------------------------------------
+------------------------------------------------- THERMAL ---------------------------------------------------
+------------------------------------------------------------------------------------------------------------
+
+local thermal = wibox.widget.textbox()
+local fan_disabled = false   -- user has requested silent mode
+local last_temp_c  = 0       -- last known temp, used to gate the toggle
+
+local thermal_temp_path = (function()
+	local f = io.popen("find /sys/devices/platform/coretemp.0/hwmon -name 'temp1_input' 2>/dev/null | head -1")
+	if not f then return nil end
+	local p = f:read("*l")
+	f:close()
+	return (p and p ~= "") and p or nil
+end)()
+
+local update_thermal  -- forward declaration so toggle_fan can call it
+
+local function toggle_fan()
+	if last_temp_c >= 85 then return end
+	local new_disabled = not fan_disabled
+	local level = new_disabled and "0" or "auto"
+	awful.spawn.easy_async_with_shell(
+		"echo 'level " .. level .. "' | sudo -n $(readlink $(which tee)) /proc/acpi/ibm/fan > /dev/null 2>&1",
+		function(_, _, _, exitcode)
+			if exitcode == 0 then
+				fan_disabled = new_disabled
+			end
+			update_thermal()
+		end
+	)
+end
+
+_G.toggle_fan = toggle_fan
+
+update_thermal = function()
+	local temp_c = 0
+	if thermal_temp_path then
+		local f = io.open(thermal_temp_path, "r")
+		if f then
+			local raw = f:read("*n")
+			f:close()
+			if raw then temp_c = math.floor(raw / 1000 + 0.5) end
+		end
+	end
+	last_temp_c = temp_c
+
+	local fan_rpm = 0
+	local ff = io.open("/proc/acpi/ibm/fan", "r")
+	if ff then
+		for line in ff:lines() do
+			local rpm = line:match("^speed:%s+(%d+)")
+			if rpm then fan_rpm = tonumber(rpm); break end
+		end
+		ff:close()
+	end
+
+	-- Hand control back to the kernel when it gets too hot
+	if fan_disabled and temp_c >= 85 then
+		fan_disabled = false
+		set_fan_level("auto")
+	end
+
+	local color
+	if temp_c >= 85 then
+		color = color_bad
+	elseif not fan_disabled and fan_rpm > 0 then
+		color = color_degraded  -- fan spinning = warm
+	else
+		color = beautiful.fg_normal
+	end
+
+	local fan_part = fan_disabled
+		and " 🔇"
+		or string.format(" 󰈐 %d", fan_rpm)
+
+	thermal.markup = string.format(
+		"<span font='%s' foreground='%s'>%d°%s</span>",
+		beautiful.font, color, temp_c, fan_part
+	)
+end
+
+gears.timer({timeout = 5, autostart = true, callback = update_thermal})
+gears.timer.delayed_call(update_thermal)
+
+thermal:buttons(
+	gears.table.join(
+		awful.button({}, 1, function() toggle_fan() end)
+	)
+)
+
+------------------------------------------------------------------------------------------------------------
 ------------------------------------------------- BATTERY --------------------------------------------------
 ------------------------------------------------------------------------------------------------------------
 
@@ -549,6 +640,8 @@ statusbar.widget = {
 	icon_text("", disk),
 	sep(),
 	icon_text("", sys),
+	sep(),
+	icon_text("󰔏", thermal),
 	sep(),
 	icon_text("", battery),
 	sep(),
