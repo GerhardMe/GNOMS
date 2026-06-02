@@ -16,7 +16,7 @@ local theme = {}
 theme.font = "JetBrains Mono SemiBold 10"
 
 -- Backgrounds
-theme.bg_normal = "#151515" -- bar background, matches i3's `background`
+theme.bg_normal = "{{bar_color}}" -- bar background, matches terminal top-fade colour
 theme.bg_focus = "#8700ff" -- focused workspace background
 theme.bg_urgent = "#900000" -- urgent background (i3 used this behind red border)
 theme.bg_minimize = "#8700ff" -- matches inactive workspace background

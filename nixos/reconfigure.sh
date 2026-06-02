@@ -133,6 +133,18 @@ hacky_fixes() {
 
 # -------------------- Operations --------------------
 reload() {
+	parse_config
+
+	step "Generating terminal top-edge fade…"
+	TOP_FADE="$HOME/.cache/gnoms/top_fade.png"
+	BAR_COLOR="${CONFIG[bar_color]:-#404040}"
+	STRIP_H=80
+	W=3840
+	mkdir -p "$(dirname "$TOP_FADE")"
+
+	magick -size "${W}x${STRIP_H}" gradient:"${BAR_COLOR}-none" "$TOP_FADE"
+	success "Top fade generated → $TOP_FADE (${BAR_COLOR} → transparent)"
+
 	step "Copying dotfiles…"
 	copy "$COREDOT/dunst.conf" "$DOT/dunst/dunstrc"
 	copy "$COREDOT/udiskie.yml" "$DOT/udiskie/config.yml"
@@ -143,7 +155,7 @@ reload() {
 	copy "$COREDOT/fish/theme.fish" "$DOT/fish/conf.d/fish_frozen_theme.fish"
 	copy "$COREDOT/awesome/main.lua" "$DOT/awesome/rc.lua"
 	copy "$COREDOT/awesome/statusbar.lua" "$DOT/awesome/statusbar.lua"
-	copy "$COREDOT/awesome/theme.lua" "$DOT/awesome/theme.lua"
+	apply_template "$COREDOT/awesome/theme.lua" "$DOT/awesome/theme.lua"
 	copy "$COREDOT/wezterm.lua" "$DOT/wezterm/wezterm.lua"
 	copy "$COREDOT/cava.conf" "$DOT/cava/config"
 	copy "$COREDOT/nvim/init.lua" "$DOT/nvim/init.lua"

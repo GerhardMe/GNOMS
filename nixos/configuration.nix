@@ -244,7 +244,16 @@ in {
   hardware.graphics.enable32Bit = true; # Steam support
   services.picom = {
     enable = true;
-    settings.vsync = true;
+    settings = {
+      vsync = true;
+      backend = "glx";
+      blur-method = "gaussian";
+      blur-size = 15;
+      blur-deviation = 7.0;
+      blur-background = true;
+      blur-background-frame = false;
+      blur-background-exclude = [ "_NET_WM_WINDOW_TYPE@:32a *= '_NET_WM_WINDOW_TYPE_DOCK'" ];
+    };
   };
   hardware.graphics.enable = true;
   services.xserver.videoDrivers = [ "modesetting" ];

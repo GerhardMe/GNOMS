@@ -40,7 +40,18 @@ return {
         }
     },
     bold_brightens_ansi_colors = true,
-    window_background_opacity = 0.70,
+    background = {
+        {source = {Color = "#000000"}, opacity = 0.70, width = "100%", height = "100%"},
+        {
+            source = {File = os.getenv("HOME") .. "/.cache/gnoms/top_fade.png"},
+            opacity = 1.0,
+            width = "100%",
+            height = 80,
+            vertical_align = "Top",
+            repeat_x = "NoRepeat",
+            repeat_y = "NoRepeat"
+        }
+    },
     text_background_opacity = 1,
     window_decorations = "RESIZE",
     enable_tab_bar = false,

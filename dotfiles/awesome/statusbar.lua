@@ -504,7 +504,9 @@ update_thermal = function()
 	local color
 	if temp_c >= 85 then
 		color = color_bad
-	elseif not fan_disabled and fan_rpm > 0 then
+	elseif fan_disabled then
+		color = color_degraded  -- silence mode
+	elseif fan_rpm > 0 then
 		color = color_degraded  -- fan spinning = warm
 	else
 		color = beautiful.fg_normal
