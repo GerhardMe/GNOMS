@@ -189,7 +189,8 @@ awful.layout.layouts = {
 	awful.layout.suit.tile,
 	awful.layout.suit.tile.bottom,
 	awful.layout.suit.tile.left,
-	awful.layout.suit.tile.top
+	awful.layout.suit.tile.top,
+	awful.layout.suit.floating
 }
 
 awful.screen.connect_for_each_screen(
@@ -390,6 +391,14 @@ globalkeys =
 			awesome.restart()
 		end,
 		{description = "restart awesomeWM", group = "awesome"}
+	),
+	awful.key(
+		{modkey, "Shift"},
+		"BackSpace",
+		function()
+			awesome.quit()
+		end,
+		{description = "quit awesomeWM", group = "awesome"}
 	),
 	-- cycle tiling layout
 	awful.key(
@@ -903,6 +912,7 @@ local function update_client_decoration(c)
 		c.shape = beautiful.client_shape
 	end
 end
+
 
 -- mouse can change focus
 client.connect_signal(

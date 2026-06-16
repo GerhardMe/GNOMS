@@ -18,6 +18,7 @@ echo "Started unclutter"
 
 # Set up screenlock
 LOCK="$HOME/GNOMS/scripts/blurlock.sh"
+pkill xidlehook || true
 xidlehook --not-when-audio --not-when-fullscreen --timer 400 "$LOCK" '' &
 xidlehook --not-when-fullscreen --timer 801 "$LOCK" '' &
 echo "Started idle screen lock"

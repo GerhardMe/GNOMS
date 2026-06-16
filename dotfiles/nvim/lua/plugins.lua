@@ -66,25 +66,29 @@ return {
         end
     },
     {
-        "Isrothy/neominimap.nvim",
-        version = "v3.x.x",
-        lazy = false,
-        init = function()
-            ---@type Neominimap.UserConfig
-            vim.g.neominimap = {
-                y_multiplier = 4,
-                x_multiplier = 4,
-                delay = 1600,
-                current_line_position = "percent",
-                layout = "float", -- or "split"
-                click = {enabled = true},
-                float = {minimap_width = 18}, -- for layout = "float"
-                split = {minimap_width = 18}, -- for layout = "split"
-                auto_enable = true
-            }
+        "echasnovski/mini.map",
+        version = false,
+        config = function()
+            local map = require("mini.map")
+            map.setup({
+                integrations = {
+                    map.gen_integration.builtin_search(),
+                    map.gen_integration.gitsigns(),
+                    map.gen_integration.diagnostic(),
+                },
+                symbols = {
+                    encode = map.gen_encode_symbols.dot("4x2"),
+                },
+                window = {
+                    width = 18,
+                    show_integration_count = false,
+                },
+            })
+            map.open()
+            vim.keymap.set("n", "<leader>mm", map.toggle, { noremap = true, silent = true, desc = "Toggle minimap" })
         end
     },
-    -- Git signs (needed for neominimap git marks, and generally useful)
+    -- Git signs
     {
         "lewis6991/gitsigns.nvim",
         dependencies = {"nvim-lua/plenary.nvim"},

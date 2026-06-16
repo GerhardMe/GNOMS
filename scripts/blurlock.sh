@@ -1,54 +1,50 @@
 #!/usr/bin/env bash
-
 set -euo pipefail
 
-# --- Conditions ---
-# already locked?
-if pgrep -x i3lock >/dev/null; then
-  exit 0
-fi
+# Exclusive lock — FD 9 is inherited by `exec i3lock`, which holds the flock
+# until the user unlocks. This replaces pgrep and prevents concurrent runs.
+exec 9>/tmp/blurlock.lock
+flock -n 9 || exit 0
 
-# uptime in seconds
+# Don't lock right after boot
 UPTIME=$(awk '{print int($1)}' /proc/uptime)
-
-# if system older than 50s, then exit
 if ((UPTIME < 50)); then
   exit 0
 fi
 
-# --- your existing script follows ---
+IMG=/tmp/blurlock_screen.png
+OVER="$HOME/.cache/blurlock_overlay.png"
+BLUR="0x1"
 
-RADIUS=0x${1:-1}
-IMG=/tmp/screenshot.png
-OVER=/tmp/lock_overlay.png
+LOCK_CHAR=$''
 
-FONTFILE="$(fc-list -f '%{file}\n' | grep -i -E 'SymbolsNerdFontMono|NerdFont.*Mono' | head -n1 || true)"
-if [[ -z "${FONTFILE}" ]]; then
-  dunstify -u critical "No Nerd Font found. Install a Nerd Font (e.g. Symbols Nerd Font Mono)."
-  exit 1
+# Remove screenshot on any non-exec exit (error paths only; exec bypass is intentional)
+cleanup() { rm -f "$IMG"; }
+trap cleanup EXIT
+
+# Build overlay once; cache it across invocations
+if [[ ! -f "$OVER" ]]; then
+  FONTFILE="$(fc-list -f '%{file}\n' | grep -i -E 'SymbolsNerdFontMono|NerdFont.*Mono' | head -n1 || true)"
+  if [[ -z "$FONTFILE" ]]; then
+    dunstify -u critical "blurlock" "No Nerd Font found — install a Nerd Font."
+    exit 1
+  fi
+  mkdir -p "$(dirname "$OVER")"
+  magick -size 600x600 xc:none \
+    -gravity center \
+    -fill "#BABABA" -stroke "#292929" -strokewidth 2 \
+    -font "$FONTFILE" -pointsize 160 \
+    -annotate -1-6 "$LOCK_CHAR" \
+    "$OVER"
 fi
-
-LOCK_CHAR=$'\ue672'
-POINTSIZE=160
-FILL="#BABABA"
-STROKE="#292929"
-STROKEWIDTH=2
 
 dunstify -u normal -t 700 -h string:fgcolor:#00ffff "🔒 Locking Computer..."
 
-maim -u | magick - -scale 10% -blur "$RADIUS" -resize 1000% "$IMG"
-
-magick -size 600x600 xc:none \
-  -gravity center \
-  -fill "$FILL" -stroke "$STROKE" -strokewidth "$STROKEWIDTH" \
-  -font "$FONTFILE" -pointsize "$POINTSIZE" \
-  -annotate -1-6 "$LOCK_CHAR" \
-  "$OVER"
-
-if ! magick identify -format '%[channels]' "$OVER" >/dev/null 2>&1; then
-  exit 1
-fi
-
-magick "$IMG" "$OVER" -gravity center -compose over -composite "$IMG"
+# Single-pass: screenshot → blur → composite overlay → write file
+maim -u | magick - \
+  -scale 10% -blur "$BLUR" -resize 1000% \
+  \( "$OVER" \) -gravity center -compose over -composite \
+  -define png:compression-level=1 \
+  "$IMG"
 
 exec i3lock -i "$IMG"

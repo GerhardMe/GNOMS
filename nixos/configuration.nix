@@ -247,9 +247,8 @@ in {
     settings = {
       vsync = true;
       backend = "glx";
-      blur-method = "gaussian";
-      blur-size = 15;
-      blur-deviation = 7.0;
+      blur-method = "dual_kawase";
+      blur-strength = 3;
       blur-background = true;
       blur-background-frame = false;
       blur-background-exclude = [ "_NET_WM_WINDOW_TYPE@:32a *= '_NET_WM_WINDOW_TYPE_DOCK'" ];
@@ -263,6 +262,29 @@ in {
   # ------------------------------------------------------------------------------------------
 
   specialisation = {
+    rescue.configuration = {
+      system.nixos.label = "rescue";
+
+      services.xserver.enable = pkgs.lib.mkForce false;
+      services.displayManager.sddm.enable = pkgs.lib.mkForce false;
+      services.displayManager.autoLogin.enable = pkgs.lib.mkForce false;
+      services.picom.enable = pkgs.lib.mkForce false;
+
+      environment.etc."issue".text = ''
+
+        ┌─────────────────────────────────────────────────────┐
+        │                                                     │
+        │          GNOMS  —  EMERGENCY  RESCUE  MODE          │
+        │                                                     │
+        │   No graphical session. Auto-login disabled.        │
+        │   Home-manager user services will not start.        │
+        │   Log in to access the shell environment.           │
+        │                                                     │
+        └─────────────────────────────────────────────────────┘
+
+      '';
+    };
+
     eGPU.configuration = {
       system.nixos.label = "nix-NVIDIA";
       services.xserver.videoDrivers = [ "nvidia" "modesetting" ];
