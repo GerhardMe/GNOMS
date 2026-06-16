@@ -802,7 +802,8 @@ awful.rules.rules = {
 				"tor browser",
 				"pavucontrol",
 				"baobab",
-				"Qalculate-gtk"
+				"Qalculate-gtk",
+				"proton-vpn"
 			},
 			name = {"blueman-manager"},
 			role = {"blueman-manager"}
