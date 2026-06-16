@@ -319,7 +319,7 @@ in {
   '';
 };
 
-  # Nix garbage collection (monthly, keep only last 30 days)
+  # Nix garbage collection (monthly, keep only last 180 days)
   nix = {
     settings = {
       auto-optimise-store = true;
@@ -333,7 +333,7 @@ in {
       # persistent = true; # (default is true; ensures missed runs happen later)
     };
   };
-  boot.loader.grub.configurationLimit = 10;
+
 
   system.stateVersion = "24.11"; # apparantly important. ¯\_(ツ)_/¯
   home-manager.backupFileExtension = "backup";
