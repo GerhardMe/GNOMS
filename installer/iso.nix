@@ -12,6 +12,7 @@
 #            to its DEFAULT_REPO_URL, and the prompt lets you change it.
 # Result:  result/iso/*.iso
 {
+  config,
   pkgs,
   lib,
   modulesPath,
@@ -50,6 +51,11 @@ in {
   '';
 
   isoImage.volumeID = "GNOMS-INSTALL";
+  # File name: gnoms-<nixos version>-x86_64-linux.iso instead of nixos-minimal-…
+  # (image.baseName is the whole name minus .iso; the ISO module already
+  # sets it, hence mkForce.)
+  image.baseName = lib.mkForce
+    "gnoms-${config.system.nixos.label}-${pkgs.stdenv.hostPlatform.system}";
 
   # ISO default keymap; the gnoms script's first prompt offers a change
   # for the session (Enter keeps this).
