@@ -105,13 +105,25 @@ if status is-interactive
     # ----------------------------------------------------------------
 
     function dev
-        # Build (not enter) the devShell first to create a persistent GC
-        # root under ~/.cache/gnoms/shells, so garbage collection can't
-        # wipe the shell of a project you're in. Refreshed on every run.
-        mkdir -p "$HOME/.cache/gnoms/shells"
-        nix build --no-link --out-link "$HOME/.cache/gnoms/shells/"(basename "$PWD") \
-            ".#devShells."(nix config show system)".default" 2>/dev/null
-        nix develop --command fish $argv
+        # Enter the project's devShell and keep it from being garbage
+        # collected: --profile installs the shell into a profile under
+        # ~/.cache/gnoms/shells, which nix registers as a GC root.
+        # Refreshed on every run. Build output stays visible, so a slow
+        # first build shows progress instead of looking like a hang.
+        if not test -f flake.nix
+            echo "dev: no flake.nix in $PWD" >&2
+            return 1
+        end
+        set -l shells "$HOME/.cache/gnoms/shells"
+        mkdir -p $shells
+        # basename + short hash of the full path, so two projects with the
+        # same directory name don't overwrite each other's root
+        set -l name (basename $PWD)-(string sub -l 8 (echo -n $PWD | sha256sum))
+        nix develop --profile $shells/$name --command fish $argv
+        # Each changed shell adds a profile generation, and every generation
+        # is its own GC root. Keep only the current one so old versions of
+        # the shell don't stay pinned.
+        nix profile wipe-history --profile $shells/$name
     end
 
     # Reconfigure

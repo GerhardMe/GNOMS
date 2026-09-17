@@ -14,6 +14,25 @@ let
     #!${pkgs.runtimeShell}
     touch "/tmp/hw-trigger-$(date +%s)-$1"
   '';
+
+  # Lid debounce: the T480 lid sensor sometimes reports closed for a second
+  # and reopens (2026-09-09: four bounces in ten minutes, each one a full
+  # suspend cycle). acpid calls this with "button/lid LID close|open"; on
+  # close we wait lidDebounceSec and only sleep if the lid is still closed.
+  # Going through systemctl keeps logind's sleep inhibitors (awake.service)
+  # in charge.
+  lidDebounceSec = 5;
+  lidDebounceScript = pkgs.writeShellScript "lid-debounce" ''
+    # acpid passes the event either as one string or as separate words.
+    case "$*" in *close*) ;; *) exit 0 ;; esac
+    ${pkgs.coreutils}/bin/sleep ${toString lidDebounceSec}
+    ${pkgs.gnugrep}/bin/grep -qs closed /proc/acpi/button/lid/*/state || exit 0
+    if [ "$(${pkgs.coreutils}/bin/cat /sys/class/power_supply/AC/online 2>/dev/null)" = "1" ]; then
+      exec ${pkgs.systemd}/bin/systemctl --check-inhibitors=yes suspend
+    else
+      exec ${pkgs.systemd}/bin/systemctl --check-inhibitors=yes suspend-then-hibernate
+    fi
+  '';
 in {
 
   # ------------------------------------------------------------------------------------------
@@ -116,10 +135,20 @@ in {
   # HibernateDelaySec of sleeping, wake briefly and hibernate to disk so a
   # forgotten laptop ends up at zero battery draw instead of dying flat.
   # Inhibitors still win, so "server mode" (awake.service) keeps it awake.
+  #
+  # The lid itself is NOT handled by logind (it acts on the very first
+  # "closed" edge, and the sensor bounces). acpid + lidDebounceScript do it:
+  # on battery -> suspend-then-hibernate, on AC -> plain suspend, and only
+  # if the lid has stayed closed for lidDebounceSec.
   services.logind.settings.Login = {
-    HandleLidSwitch = "suspend-then-hibernate";
-    HandleLidSwitchExternalPower = "suspend";
+    HandleLidSwitch = "ignore";
+    HandleLidSwitchExternalPower = "ignore";
+    HandleLidSwitchDocked = "ignore";
     HandlePowerKey = "suspend-then-hibernate";
+  };
+  services.acpid = {
+    enable = true;
+    lidEventCommands = "${lidDebounceScript} \"$@\"";
   };
   systemd.sleep.settings.Sleep = {
     HibernateDelaySec = "1h";
