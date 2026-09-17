@@ -5,7 +5,11 @@ echo "Battery monitor started at $(date)"
 THRESHOLD=4
 BATTERY_PATH="/sys/class/power_supply/BAT0/capacity"
 STATUS_PATH="/sys/class/power_supply/BAT0/status"
-POPUP_EXEC="$HOME/GNOMS/scripts/batNotify/battery_popup.run"
+# Built by nix from nixos/battery-popup (home.packages), so it never loses
+# its libraries to garbage collection. Make sure the per-user profile is on
+# PATH even when awesome was started with a minimal environment.
+export PATH="/etc/profiles/per-user/$USER/bin:$HOME/.nix-profile/bin:$PATH"
+POPUP_EXEC="battery-popup"
 INTERVAL=61 # seconds between checks
 STATE_FILE="/tmp/battery_warning_shown"
 

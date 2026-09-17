@@ -235,8 +235,13 @@ sync_flake() {
 	sudo mkdir -p "$TARGET_DIR/user"
 	sudo cp -f "$USER_DIR"/userprofile.nix "$USER_DIR"/userprograms.nix "$TARGET_DIR/user/"
 
-	sudo chown root:root "$TARGET_DIR"/{flake.nix,flake.lock,configuration.nix,home.nix} "$TARGET_DIR"/user/*.nix
-	sudo chmod 644 "$TARGET_DIR"/{flake.nix,flake.lock,configuration.nix,home.nix} "$TARGET_DIR"/user/*.nix
+	# Packages nix builds from source in the repo (home.nix callPackage's them)
+	step "Copying local packages into $TARGET_DIR…"
+	sudo mkdir -p "$TARGET_DIR/battery-popup"
+	sudo cp -f "$REPO_DIR"/battery-popup/* "$TARGET_DIR/battery-popup/"
+
+	sudo chown root:root "$TARGET_DIR"/{flake.nix,flake.lock,configuration.nix,home.nix} "$TARGET_DIR"/user/*.nix "$TARGET_DIR"/battery-popup/*
+	sudo chmod 644 "$TARGET_DIR"/{flake.nix,flake.lock,configuration.nix,home.nix} "$TARGET_DIR"/user/*.nix "$TARGET_DIR"/battery-popup/*
 	success "Flake files and profile updated in $TARGET_DIR"
 }
 

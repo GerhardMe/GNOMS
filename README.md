@@ -86,8 +86,9 @@ Small things that make a laptop pleasant, each one a short script in
   changes color so you always know which one you are in. (`scripts/mode.sh`,
   `mode-set.sh`, `performance.sh`)
 - **Battery warning** — a monitor polls the battery and throws up a bare
-  X11 popup at 4 % that no notification daemon can swallow.
-  (`scripts/battery-monitor.sh`, `scripts/batNotify/`)
+  X11 popup at 4 % that no notification daemon can swallow. The popup is a
+  tiny C++ program nix builds as part of the system, so it survives
+  garbage collection. (`scripts/battery-monitor.sh`, `nixos/battery-popup/`)
 - **Hibernation done right** — lid close suspends, and after an hour on
   battery the machine wakes briefly and hibernates to a swapfile that
   lives _inside_ the encrypted root, so the memory image is encrypted at

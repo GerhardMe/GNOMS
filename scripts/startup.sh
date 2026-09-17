@@ -7,10 +7,12 @@ echo "Startup script started at $(date)"
 # Select mode
 $HOME/GNOMS/scripts/mode-set.sh &
 
-# Start battery monitor
-rm /tmp/battery_warning_shown
+# Start battery monitor (kill the previous instance first, so an awesome
+# restart doesn't stack monitors and the new one picks up script changes)
+pkill -f battery-monitor.sh || true
+rm -f /tmp/battery_warning_shown
 $HOME/GNOMS/scripts/battery-monitor.sh &
-echo "Started battery waring script"
+echo "Started battery warning script"
 
 # Cursor hider
 unclutter -idle 1 -jitter 2 -root &

@@ -143,6 +143,10 @@ gtk = {
     xwallpaper
     papirus-icon-theme
     fastfetch
+
+    # Low-battery popup used by scripts/battery-monitor.sh (source in
+    # ./battery-popup, built here so it stays in the system closure)
+    (callPackage ./battery-popup { })
   ] ++ userprograms.user;
 
   # ------------------------------------------------------------------------------------------
