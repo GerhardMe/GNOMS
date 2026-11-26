@@ -405,8 +405,8 @@ in {
         powerManagement.finegrained = false;
         package = config.boot.kernelPackages.nvidiaPackages.stable;
         prime = {
-          sync.enable = true; # shuld be false ???
-          offload.enable = false; # shuld be true ???
+          sync.enable = true; # should be false ???
+          offload.enable = false; # should be true ???
           allowExternalGpu = true;
           intelBusId = "PCI:0:2:0";
           inherit nvidiaBusId;

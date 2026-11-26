@@ -67,7 +67,7 @@ int main(int argc, char *argv[])
     Window win = XCreateSimpleWindow(display, root, 0, 0, win_width, win_height,
                                      0, 0, bg_color); // No native border
 
-    XStoreName(display, win, "battery_warnning_popup");
+    XStoreName(display, win, "battery_warning_popup");
 
     Atom net_wm_type = XInternAtom(display, "_NET_WM_WINDOW_TYPE", False);
     Atom net_wm_type_notification = XInternAtom(display, "_NET_WM_WINDOW_TYPE_NOTIFICATION", False);

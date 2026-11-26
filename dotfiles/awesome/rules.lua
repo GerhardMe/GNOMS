@@ -109,7 +109,7 @@ awful.rules.rules = {
 	},
 	-- Battery warnings:
 	{
-		rule = {name = "battery_warnning_popup"},
+		rule = {name = "battery_warning_popup"},
 		properties = {
 			floating = true,
 			placement = function(c)
