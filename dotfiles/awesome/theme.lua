@@ -13,7 +13,7 @@ local gears = require("gears")
 local theme = {}
 
 -- Font
-theme.font = "JetBrains Mono SemiBold 10"
+theme.font = "JetBrainsMono Nerd Font SemiBold 10" -- Nerd variant so icons never fall back to other fonts
 
 -- Backgrounds
 theme.bg_normal = "#424242" -- bar background, matches terminal top-fade colour

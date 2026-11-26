@@ -9,6 +9,7 @@
 #   firefox : browser — configured in nixos/home.nix (policies, extensions, search)
 #   neovim  : editor  — enabled in nixos/home.nix (default editor + vi/vim aliases)
 #   git     : version control — configured in nixos/home.nix (user name/email)
+#   gh      : GitHub CLI — enabled in nixos/home.nix (git credential helper)
 #   fish    : user shell — enabled in nixos/configuration.nix
 #   thunar  : file manager — enabled in nixos/configuration.nix (with plugins)
 #   i3lock  : screen locker — enabled in nixos/configuration.nix
@@ -37,7 +38,10 @@
     prusa-slicer      # 3D print slicer
     blender           # 3D modeling
     localsend         # AirDrop-style file sharing
-    obs-studio        # screen recording/streaming
+    (wrapOBS { plugins = with obs-studio-plugins; [
+      obs-pipewire-audio-capture # capture individual apps' audio
+    ]; })             # screen recording/streaming (OBS + plugins)
+    easyeffects       # system-wide mic noise suppression (RNNoise, DeepFilterNet)
     kdePackages.kdenlive # video editor
 
     # Terminal tools:
@@ -55,7 +59,8 @@
     rubberband         # the rubber band pitch shifter
     mda_lv2            # another good collection
     zita-at1           # autotune style pitch correction
-    rnnoise           # noise suppression plugin
+    rnnoise           # noise suppression library
+    rnnoise-plugin    # RNNoise as a LADSPA/LV2 plugin ("Noise Suppressor for Voice" in Kdenlive)
     noise-repellent   # noise reduction plugin
 
     # Games:

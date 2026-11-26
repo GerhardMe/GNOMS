@@ -2,13 +2,16 @@
 #include <X11/Xutil.h>
 #include <X11/Xatom.h>
 #include <X11/Xft/Xft.h>
+#include <cstdlib>
 #include <cstring>
 #include <iostream>
 #include <fstream>
 #include <unistd.h>
 
-// Get battery percentage with 2 decimal places or show error
-std::string get_battery_percentage()
+// Get battery percentage with 2 decimal places or show error.
+// offset: percent subtracted from the raw gauge (calibration passed in
+// by battery-monitor.sh so the popup reads 0.00 as the hardware dies).
+std::string get_battery_percentage(double offset)
 {
     std::ifstream now_file("/sys/class/power_supply/BAT0/energy_now");
     std::ifstream full_file("/sys/class/power_supply/BAT0/energy_full");
@@ -16,7 +19,7 @@ std::string get_battery_percentage()
 
     if ((now_file >> energy_now) && (full_file >> energy_full) && energy_full > 0)
     {
-        double percent = ((energy_now / energy_full) * 100.0) - 1;
+        double percent = ((energy_now / energy_full) * 100.0) - offset;
         char buffer[64];
         snprintf(buffer, sizeof(buffer), "- Warning: Battery %.2f%% -", percent);
         return std::string(buffer);
@@ -35,8 +38,12 @@ bool is_plugged_in()
     return (ac_file >> online) && online == 1;
 }
 
-int main()
+int main(int argc, char *argv[])
 {
+    // Calibration offset in percent; battery-monitor.sh passes it so both
+    // the trigger threshold and the displayed value share one knob.
+    double offset = (argc > 1) ? atof(argv[1]) : 0;
+
     Display *display = XOpenDisplay(nullptr);
     if (!display)
     {
@@ -82,7 +89,7 @@ int main()
     XSetForeground(display, gc, border_color);
 
     // Get battery before map
-    std::string msg = get_battery_percentage();
+    std::string msg = get_battery_percentage(offset);
 
     XMapWindow(display, win);
     XFlush(display);
@@ -132,7 +139,7 @@ int main()
             break;
         }
 
-        msg = get_battery_percentage();
+        msg = get_battery_percentage(offset);
 
         XClearWindow(display, win);
         for (int i = 0; i < border_thickness; ++i)

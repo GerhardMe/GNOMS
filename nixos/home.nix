@@ -22,6 +22,9 @@ in {
     EDITOR = "nvim";
     BROWSER = "firefox";
     XCURSOR_THEME = "phinger-cursors-light";
+    # Let Kdenlive/Audacity/Ardour find the audio plugins in the nix profile
+    LADSPA_PATH = "$HOME/.nix-profile/lib/ladspa";
+    LV2_PATH = "$HOME/.nix-profile/lib/lv2";
   };
 
   # Custom directories
@@ -173,6 +176,13 @@ gtk = {
       email = profile.github_email;
     };
     signing.format = null;
+  };
+
+  # GitHub CLI — run `gh auth login` once after rebuilding.
+  # Also registers gh as git's credential helper for github.com (HTTPS push/pull).
+  programs.gh = {
+    enable = true;
+    gitCredentialHelper.enable = true;
   };
 
   # ------------------------------------------------------------------------------------------

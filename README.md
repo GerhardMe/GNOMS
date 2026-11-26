@@ -85,6 +85,14 @@ Small things that make a laptop pleasant, each one a short script in
   the CPU governor to performance and enables turbo. The awesome bar
   changes color so you always know which one you are in. (`scripts/mode.sh`,
   `mode-set.sh`, `performance.sh`)
+- **Phone camera** — `phonecam <phone-ip> [-r 90]` opens an iPhone's camera
+  (DroidCam app) in a floating mpv window to drag around or fullscreen with
+  `f`. The IP and rotation are remembered; `phonecam stop` closes it.
+  (`scripts/phonecam.sh`)
+- **Private extras** — a gitignored `private/` folder for machine-local
+  bits: executables in `private/bin/` are linked onto the PATH by
+  `reconfigure`, and `private/awesome.lua` is loaded last by awesome if it
+  exists.
 - **Battery warning** — a monitor polls the battery and throws up a bare
   X11 popup at 4 % that no notification daemon can swallow. The popup is a
   tiny C++ program nix builds as part of the system, so it survives
@@ -108,9 +116,10 @@ Small things that make a laptop pleasant, each one a short script in
 - **SSH indicator** — the bar turns orange while somebody is logged in
   over SSH. (`scripts/ssh-detect.sh`)
 - **Dev shells that survive garbage collection** — the fish `dev` function
-  enters a project's `nix develop` and pins a GC root under
-  `~/.cache/gnoms/shells`, so your toolchain is not silently deleted next
-  week. (`dotfiles/fish/startup.fish`)
+  enters a project's `nix develop` and pins GC roots under
+  `~/.cache/gnoms/shells` for the shell, the flake's inputs and the bash
+  that runs it, so neither your toolchain nor the nixpkgs checkout is
+  silently deleted next week. (`dotfiles/fish/startup.fish`)
 - **Rescue boot entry** — a `rescue` specialisation in the GRUB menu boots
   the same system without X or autologin, for when the rice breaks.
 - **Garbage collection that never breaks the boot menu** — weekly GC only
@@ -130,9 +139,12 @@ marked blocks you replace, not as something you reinstall for. Here is
 what is T480-specific and where it lives.
 
 - **Thunderbolt eGPU** — an NVIDIA card in an external enclosure. It is a
-  **specialisation** (`configuration.nix`, EGPU section): a second entry
-  in the GRUB menu that builds the same system with the NVIDIA driver and
-  PRIME configured, with the PCI bus IDs of this machine. Boot the normal
+  **specialisation** (`configuration.nix`, EGPU section): extra entries
+  in the GRUB menu that build the same system with the NVIDIA driver and
+  PRIME configured, with the PCI bus IDs of this machine. The card's bus
+  ID depends on how it is plugged in (a dock adds PCIe bridges), so there
+  is one entry per topology: `nix-NVIDIA` (eGPU straight into the laptop)
+  and `nix-NVIDIA-dock` (eGPU behind the dock). Boot the normal
   entry and the card is simply absent. `egpu <program>` runs something on
   the card and warns if you booted without it. This is the pattern for
   _any_ hardware you only sometimes have: one config, two boot entries.

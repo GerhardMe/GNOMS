@@ -26,6 +26,7 @@ DOT="$HOME/.config"
 CORESCR="$REPO_ROOT/scripts"
 EXE="$HOME/.local/bin"
 USER_DIR="$REPO_ROOT/user"
+PRIVATE_DIR="$REPO_ROOT/private"
 
 # -------------------- Tuning --------------------
 TOP_FADE="$HOME/.cache/gnoms/top_fade.png" # consumed by dotfiles/wezterm.lua
@@ -56,6 +57,7 @@ DOTFILES=(
 	"$COREDOT/nvim/lua/autocmd.lua|$DOT/nvim/lua/autocmd.lua"
 	"$COREDOT/qbittorrent.conf|$DOT/qBittorrent/qBittorrent.conf"
 	"$COREDOT/fastfetch.jsonc|$DOT/fastfetch/config.jsonc"
+	"$COREDOT/flameshot.ini|$DOT/flameshot/flameshot.ini"
 )
 
 # -------------------- Helper functions --------------------
@@ -185,6 +187,12 @@ reload() {
 	link "$CORESCR/microcontroller-flash.sh" "$EXE/mcflash"
 	link "$CORESCR/mode.sh" "$EXE/mode"
 	link "$CORESCR/egpu.sh" "$EXE/egpu"
+	link "$CORESCR/phonecam.sh" "$EXE/phonecam"
+	# Machine-local commands that are not in the repo (private/ is gitignored)
+	local cmd
+	for cmd in "$PRIVATE_DIR"/bin/*; do
+		[ -f "$cmd" ] && link "$cmd" "$EXE/$(basename "$cmd")"
+	done
 
 	# One honest gate: can we actually talk to awesome? (immune to NixOS's
 	# wrapped binary breaking pgrep, and to DISPLAY being set while awesome
@@ -261,15 +269,56 @@ cleanup() {
 	find "$HOME/.cache/gnoms/shells" -maxdepth 1 -type l -mtime +200 -delete 2>/dev/null || true
 }
 
+# -------------------- Specialisation --------------------
+# The specialisation (eGPU, eGPU-dock, …) a system is, by its name: a system's
+# store path is <hash>-nixos-system-<host>-<label>, and each specialisation
+# sets its own label, so the name survives a rebuild (the hash does not).
+# Prints nothing for the base system.
+specialisation_of() {
+	local system spec name
+	system=$(basename "$(readlink -f "$1")")
+	system="${system#*-}"
+	for spec in /nix/var/nix/profiles/system/specialisation/*; do
+		[ -e "$spec" ] || continue
+		name=$(basename "$(readlink -f "$spec")")
+		if [ "${name#*-}" = "$system" ]; then
+			basename "$spec"
+			return
+		fi
+	done
+}
+
+# The specialisation to switch back into after a rebuild: the running one;
+# or, if the base system is running but a specialisation was booted (an
+# earlier switch left it), the booted one, which matches the hardware
+# plugged in. Nothing for the base system.
+current_specialisation() {
+	local spec
+	spec=$(specialisation_of /run/current-system)
+	[ -n "$spec" ] || spec=$(specialisation_of /run/booted-system)
+	printf "%s" "$spec"
+}
+
 rebuild() {
 	sudo -v # ask for the password up front, before any output
-	local hostname
+	local hostname spec
 	hostname=$(get_hostname)
+	spec=$(current_specialisation)
 
 	sync_flake
 
-	step "Building new system configuration…"
-	sudo nixos-rebuild switch --flake "$TARGET_DIR#$hostname" 2>&1 | tee >(grep --color error >&2)
+	if [ -n "$spec" ]; then
+		# Not `switch --specialisation`: that installs GRUB from the
+		# specialisation, which has no specialisation/ of its own, so the boot
+		# menu loses every specialisation and defaults to this one. Install the
+		# boot menu from the base system, then activate the specialisation live.
+		step "Building new system configuration (staying in specialisation $spec)…"
+		sudo nixos-rebuild boot --flake "$TARGET_DIR#$hostname" 2>&1 | tee >(grep --color error >&2)
+		sudo "/nix/var/nix/profiles/system/specialisation/$spec/bin/switch-to-configuration" test 2>&1 | tee >(grep --color error >&2)
+	else
+		step "Building new system configuration…"
+		sudo nixos-rebuild switch --flake "$TARGET_DIR#$hostname" 2>&1 | tee >(grep --color error >&2)
+	fi
 	success "System rebuild complete."
 
 	cleanup

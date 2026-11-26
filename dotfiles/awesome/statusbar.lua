@@ -593,9 +593,25 @@ gears.timer.delayed_call(update_battery)
 ------------------------------------------------------------------------------------------------------------
 
 local clock = wibox.widget.textbox()
-local function update_clock()
-	clock.markup = string.format("<span font='%s'>%s</span>", beautiful.font, os.date("%d.%m  %b %H:%M  "))
+
+-- Hook: the timestamp the date part is taken from (the time of day is always
+-- the real one). Local config (private/awesome.lua) may replace it and then
+-- call statusbar.update_clock().
+statusbar.clock_day = function(now)
+	return now
 end
+
+local function update_clock()
+	local now = os.time()
+	clock.markup =
+		string.format(
+		"<span font='%s'>%s%s</span>",
+		beautiful.font,
+		os.date("%d.%m  %b ", statusbar.clock_day(now)),
+		os.date("%H:%M  ", now)
+	)
+end
+statusbar.update_clock = update_clock
 gears.timer({timeout = 60, autostart = true, callback = update_clock})
 gears.timer.delayed_call(update_clock)
 clock:buttons(

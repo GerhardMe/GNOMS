@@ -847,6 +847,15 @@ awful.rules.rules = {
 			height = 600
 		}
 	},
+	-- iPhone camera window (phonecam), movable; f in mpv for fullscreen:
+	{
+		rule = {instance = "phonecam"},
+		properties = {
+			floating = true,
+			ontop = true,
+			placement = awful.placement.centered
+		}
+	},
 	-- Terminal popups:
 	{
 		rule_any = {class = {"popup"}, instance = {"popup"}},
@@ -1121,3 +1130,18 @@ gears.timer.delayed_call(
 		)
 	end
 )
+
+------------------------------------------------------------------------------------------------------------
+------------------------------------------------- PRIVATE --------------------------------------------------
+------------------------------------------------------------------------------------------------------------
+
+-- Machine-local config that is not in the repo (private/ is gitignored).
+-- Loaded last, so it can use the hooks above (e.g. statusbar.clock_day).
+local private_config = home .. "/GNOMS/private/awesome.lua"
+if gears.filesystem.file_readable(private_config) then
+	local ok, err = pcall(dofile, private_config)
+	if not ok then
+		local naughty = require("naughty")
+		naughty.notify({preset = naughty.config.presets.critical, title = "private/awesome.lua failed", text = tostring(err)})
+	end
+end

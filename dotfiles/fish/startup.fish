@@ -124,6 +124,32 @@ if status is-interactive
         # is its own GC root. Keep only the current one so old versions of
         # the shell don't stay pinned.
         nix profile wipe-history --profile $shells/$name
+
+        # The profile only pins the shell's runtime closure. Evaluating the
+        # flake needs its inputs (mostly a ~200 MB nixpkgs checkout) and
+        # `nix develop` runs the shell with bashInteractive from that same
+        # nixpkgs — neither is in the closure, so every garbage collection
+        # dropped them and the next `dev` re-fetched ~350 MB. Pin those too,
+        # next to the profile, so the reconfigure cleanup prunes them alike.
+        #
+        # `nix flake archive --json` lists the store path of the flake and of
+        # every input, straight from the lock file. Drop the old input roots
+        # first, so a bumped input doesn't leave its previous checkout pinned.
+        set -l archive (nix flake archive --json 2>/dev/null)
+        rm -f $shells/$name-input-* $shells/$name-bash
+        set -l i 0
+        for path in (echo $archive | jq -r '.. | objects | .path? // empty')
+            set i (math $i + 1)
+            nix-store --add-root $shells/$name-input-$i -r $path >/dev/null
+        end
+        # bashInteractive comes from the flake's own nixpkgs input when it has
+        # one (that is what `nix develop` uses), otherwise from the registry.
+        set -l nixpkgs (echo $archive | jq -r '.inputs.nixpkgs.path // empty')
+        if test -n "$nixpkgs"
+            nix build "$nixpkgs#bashInteractive" --out-link $shells/$name-bash 2>/dev/null
+        else
+            nix build nixpkgs#bashInteractive --out-link $shells/$name-bash 2>/dev/null
+        end
     end
 
     # Reconfigure
@@ -131,6 +157,9 @@ if status is-interactive
     alias rebuild='reconfigure rebuild'
     alias upgrade='reconfigure upgrade'
     alias update='reconfigure update'
+
+    # Power
+    alias hibernate='systemctl hibernate'
 
     # Fun
     alias minecraft='egpu prismlauncher'

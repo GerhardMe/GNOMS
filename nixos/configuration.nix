@@ -19,8 +19,11 @@ let
   # and reopens (2026-09-09: four bounces in ten minutes, each one a full
   # suspend cycle). acpid calls this with "button/lid LID close|open"; on
   # close we wait lidDebounceSec and only sleep if the lid is still closed.
-  # Going through systemctl keeps logind's sleep inhibitors (awake.service)
-  # in charge.
+  # Going through logind's D-Bus sleep methods keeps logind's sleep
+  # inhibitors (awake.service) in charge. systemctl is deliberately NOT used:
+  # run as root it refuses to sleep while any other user is logged in
+  # ("User gg is logged in on tty2"), and the autologin session always counts
+  # (2026-10-01: every lid close silently refused since the Sep 09 rebuild).
   lidDebounceSec = 5;
   lidDebounceScript = pkgs.writeShellScript "lid-debounce" ''
     # acpid passes the event either as one string or as separate words.
@@ -28,10 +31,26 @@ let
     ${pkgs.coreutils}/bin/sleep ${toString lidDebounceSec}
     ${pkgs.gnugrep}/bin/grep -qs closed /proc/acpi/button/lid/*/state || exit 0
     if [ "$(${pkgs.coreutils}/bin/cat /sys/class/power_supply/AC/online 2>/dev/null)" = "1" ]; then
-      exec ${pkgs.systemd}/bin/systemctl --check-inhibitors=yes suspend
+      exec ${pkgs.systemd}/bin/busctl call org.freedesktop.login1 /org/freedesktop/login1 org.freedesktop.login1.Manager Suspend b false
     else
-      exec ${pkgs.systemd}/bin/systemctl --check-inhibitors=yes suspend-then-hibernate
+      exec ${pkgs.systemd}/bin/busctl call org.freedesktop.login1 /org/freedesktop/login1 org.freedesktop.login1.Manager SuspendThenHibernate b false
     fi
+  '';
+
+  # systemd-sleep runs this with "pre|post <verb>" around every sleep stage;
+  # during suspend-then-hibernate it fires per stage and SYSTEMD_SLEEP_ACTION
+  # says which one (suspend, hibernate, suspend-after-failed-hibernate).
+  sleepTraceHook = pkgs.writeShellScript "sleep-trace" ''
+    PATH=${pkgs.coreutils}/bin
+    temp=0
+    for z in /sys/class/thermal/thermal_zone*/temp; do
+      t=$(cat "$z" 2>/dev/null) || continue
+      (( t > temp )) && temp=$t
+    done
+    echo "$(date '+%F %T') $1 $2 stage=''${SYSTEMD_SLEEP_ACTION:--}" \
+      "bat=$(cat /sys/class/power_supply/BAT0/capacity 2>/dev/null)%" \
+      "temp=$((temp / 1000))C" >> /var/log/sleep-trace.log
+    sync /var/log/sleep-trace.log
   '';
 in {
 
@@ -159,6 +178,12 @@ in {
   # spare the SSD writes. 24 GB RAM means real swap pressure is rare anyway.
   boot.kernel.sysctl."vm.swappiness" = 10;
 
+  # Sleep trace: one line per sleep stage in /var/log/sleep-trace.log, synced
+  # to disk before the machine goes down. The journal loses its last minutes
+  # on a hang (2026-11-23: died somewhere in suspend-then-hibernate, journal
+  # ends at "suspend entry"); the last line here shows which stage hung.
+  environment.etc."systemd/system-sleep/sleep-trace".source = sleepTraceHook;
+
   # ------------------------------------------------------------------------------------------
   # ----------------------------------------- USER -----------------------------------------
   # ------------------------------------------------------------------------------------------
@@ -191,10 +216,14 @@ in {
   # --------------------------------------- PERIFERALS ---------------------------------------
   # ------------------------------------------------------------------------------------------
 
-  # Inverse tutchpad scolling
+  # Inverse tutchpad scolling. No middle-click emulation: left and right
+  # pressed together stay left and right (games read them as two buttons),
+  # instead of turning into a middle click.
   services.libinput = {
     enable = true;
     touchpad.naturalScrolling = true;
+    touchpad.middleEmulation = false;
+    mouse.middleEmulation = false;
   };
 
   # Keyboard layout
@@ -247,10 +276,8 @@ in {
   # Bluetooth
   hardware.bluetooth.enable = true;
   hardware.bluetooth.powerOnBoot = true;
-  environment.etc = {
-    "wireplumber/bluetooth.lua.d/51-bluez-config.lua".text =
-      "	bluez_monitor.properties = {\n		[\"bluez5.enable-sbc-xq\"] = true,\n		[\"bluez5.enable-msbc\"] = true,\n		[\"bluez5.enable-hw-volume\"] = true,\n		[\"bluez5.headset-roles\"] = \"[ hsp_hs hsp_ag hfp_hf hfp_ag ]\"\n	}\n";
-  };
+  environment.etc."wireplumber/bluetooth.lua.d/51-bluez-config.lua".text =
+    "	bluez_monitor.properties = {\n		[\"bluez5.enable-sbc-xq\"] = true,\n		[\"bluez5.enable-msbc\"] = true,\n		[\"bluez5.enable-hw-volume\"] = true,\n		[\"bluez5.headset-roles\"] = \"[ hsp_hs hsp_ag hfp_hf hfp_ag ]\"\n	}\n";
 
   # ------------------------------------------------------------------------------------------
   # ---------------------------------------- NETWORK -----------------------------------------
@@ -285,9 +312,19 @@ in {
   systemd.services.ModemManager = {
     enable = pkgs.lib.mkForce true;
     wantedBy = [ "multi-user.target" "network.target" ];
-    restartIfChanged = false;
-    serviceConfig.TimeoutStopSec = 3;
+    restartIfChanged = false; # a rebuild still restarts it when polkit changes (upstream Requires=polkit)
+    serviceConfig = {
+      # SIGTERM only ModemManager itself: by default mbim-proxy is killed with it,
+      # so MM can't disable the modem cleanly, hangs until SIGKILL, and the modem
+      # is left wedged (the next MM can't probe it; 4G is gone until a reboot).
+      KillMode = "mixed";
+      TimeoutStopSec = 10;
+    };
+    environment = {
+      MM_DEBUG = "1";
+    };
   };
+  services.fwupd.enable = true;
   networking.firewall = {
     enable = true;
     # Syncthing:
@@ -356,9 +393,33 @@ in {
   # ---------------------------------------- EGPU --------------------------------------------
   # ------------------------------------------------------------------------------------------
 
-  specialisation = {
+  specialisation = let
+    # The eGPU's PCI bus depends on how it is plugged in (the dock adds bridges),
+    # and PRIME needs the exact bus ID, so each topology gets its own boot entry.
+    egpu = name: label: nvidiaBusId: {
+      system.nixos.label = label;
+      boot.loader.grub.configurationName = name;
+      services.xserver.videoDrivers = [ "nvidia" "modesetting" ];
+      hardware.nvidia = {
+        modesetting.enable = true;
+        open = false;
+        nvidiaSettings = true;
+        powerManagement.enable = true;
+        powerManagement.finegrained = false;
+        package = config.boot.kernelPackages.nvidiaPackages.stable;
+        prime = {
+          sync.enable = true; # shuld be false ???
+          offload.enable = false; # shuld be true ???
+          allowExternalGpu = true;
+          intelBusId = "PCI:0:2:0";
+          inherit nvidiaBusId;
+        };
+      };
+    };
+  in {
     rescue.configuration = {
       system.nixos.label = "rescue";
+      boot.loader.grub.configurationName = "rescue";
 
       services.xserver.enable = pkgs.lib.mkForce false;
       services.displayManager.sddm.enable = pkgs.lib.mkForce false;
@@ -380,26 +441,8 @@ in {
       '';
     };
 
-    eGPU.configuration = {
-      system.nixos.label = "nix-NVIDIA";
-      services.xserver.videoDrivers = [ "nvidia" "modesetting" ];
-      hardware.nvidia = {
-        modesetting.enable = true;
-        open = false;
-        nvidiaSettings = true;
-        powerManagement.enable = true;
-        powerManagement.finegrained = false;
-        package = config.boot.kernelPackages.nvidiaPackages.stable;
-        prime = {
-          sync.enable = true; # shuld be false ???
-          offload.enable = false; # shuld be true ???
-          allowExternalGpu = true;
-          # Make sure to use the correct Bus ID values for your system!
-          intelBusId = "PCI:0:2:0";
-          nvidiaBusId = "PCI:12:0:0";
-        };
-      };
-    };
+    eGPU.configuration = egpu "eGPU" "nix-NVIDIA" "PCI:9:0:0"; # eGPU plugged straight into the laptop
+    eGPU-dock.configuration = egpu "eGPU-dock" "nix-NVIDIA-dock" "PCI:12:0:0"; # eGPU behind the WD22TB4 dock
   };
 
   # ------------------------------------------------------------------------------------------
@@ -454,8 +497,6 @@ in {
   services.udev.extraRules = ''
     ACTION=="add", SUBSYSTEM=="tty", TAG+="systemd", ENV{SYSTEMD_WANTS}="log-usb-event.service"
     ACTION=="change", SUBSYSTEM=="drm", TAG+="systemd", ENV{SYSTEMD_WANTS}="log-monitor-event.service"
-    ACTION=="change", KERNEL=="lid*", SUBSYSTEM=="power_supply", ENV{POWER_SUPPLY_ONLINE}=="0", \
-      TAG+="systemd", ENV{SYSTEMD_USER_WANTS}="log-on-lid.service"
   '';
   systemd.services.log-usb-event = {
     serviceConfig = {
@@ -479,7 +520,14 @@ in {
         "${pkgs.bash}/bin/bash -c '${rootTriggerScript} sleep; sleep 3'";
     };
   };
-  systemd.tmpfiles.rules = [ "r /tmp/awesome-has-started - - - - -" ];
+  systemd.tmpfiles.rules = [
+    "r /tmp/awesome-has-started - - - - -"
+    # Hibernation image may hold all of RAM (24 GiB; swap is 32 GiB). The
+    # kernel default (2/5 of RAM) pushes everything above ~10 GB out to
+    # encrypted swap before saving, which then pages back in slowly after
+    # resume (the sluggish lock screen). Cost: a bigger image to write.
+    "w /sys/power/image_size - - - - 25769803776"
+  ];
 
   # ------------------------------------------------------------------------------------------
   # ----------------------------------------- PROGRAMS ---------------------------------------
@@ -632,6 +680,8 @@ in {
     nerd-fonts.jetbrains-mono
     nerd-fonts.inconsolata
     font-awesome
+    corefonts # Impact (meme font), Arial, etc. - unfree
+    (google-fonts.override { fonts = [ "Anton" "BebasNeue" "Oswald" "Bangers" "LuckiestGuy" "Montserrat" ]; }) # thumbnail fonts
   ];
   fonts.fontDir.enable = true;
 
