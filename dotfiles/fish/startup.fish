@@ -1,51 +1,97 @@
 if status is-interactive
-    # Diable welcome msg:
+    # Disable welcome msg:
     set -g fish_greeting
 
     # PATH scripts
     set -gx PATH $HOME/.local/bin $PATH
 
     # ----------------------------------------------------------------
-    # ------------------ Git auto commit messages --------------------
+    # ------------------------ Git shortcuts -------------------------
     # ----------------------------------------------------------------
+    # git ac [msg]  add everything, commit (msg, or one built from the
+    #               changed files) and push
+    # git yeet      throw away every uncommitted change, back to the
+    #               last commit (asks first; gitignored files are kept)
+    # Anything else goes straight to git.
+
+    # "a, b, c +2": the first three names, then how many more
+    function __git_msg_list
+        set -l n (count $argv)
+        if test $n -gt 3
+            echo (string join ', ' $argv[1..3])" +"(math $n - 3)
+        else
+            string join ', ' $argv
+        end
+    end
+
+    # Commit message from the staged changes, e.g.
+    # "dotfiles/awesome: add rules.lua; update main.lua, statusbar.lua".
+    # The prefix is the deepest directory all changed files share.
+    function __git_smart_msg
+        set -l adds
+        set -l mods
+        set -l dels
+        set -l movs
+        set -l dirs
+        for line in (command git diff --cached --name-status -M)
+            set -l f (string split \t -- $line)
+            switch $f[1]
+                case 'A*'
+                    set -a adds (path basename -- $f[2])
+                case 'D*'
+                    set -a dels (path basename -- $f[2])
+                case 'R*'
+                    set -a movs (path basename -- $f[2])" → "(path basename -- $f[3])
+                    set -a dirs (path dirname -- $f[2])
+                case '*'
+                    set -a mods (path basename -- $f[2])
+            end
+            set -a dirs (path dirname -- $f[-1])
+        end
+
+        set -l scope $dirs[1]
+        for d in $dirs[2..-1]
+            while test "$scope" != . -a "$d" != "$scope"; and not string match -q -- "$scope/*" $d
+                set scope (path dirname -- $scope)
+            end
+        end
+
+        set -l parts
+        test (count $adds) -gt 0; and set -a parts "add "(__git_msg_list $adds)
+        test (count $mods) -gt 0; and set -a parts "update "(__git_msg_list $mods)
+        test (count $movs) -gt 0; and set -a parts "rename "(__git_msg_list $movs)
+        test (count $dels) -gt 0; and set -a parts "remove "(__git_msg_list $dels)
+        set -l msg (string join '; ' $parts)
+        test "$scope" != .; and set msg "$scope: $msg"
+        echo $msg
+    end
 
     function git
-        set -l subcmd $argv[1]
-        switch $subcmd
-            case c
-                # git c <msg>  → use <msg> as commit message
-                # git c        → auto-commit with timestamp
-                if test (count $argv) -gt 1
-                    command git commit -m "$argv[2..-1]"
-                else
-                    command git commit -m (date '+%Y-%m-%d %H:%M:%S')
-                end
-
-            case lts
-                set -l ts (date '+%Y-%m-%d %H:%M:%S')
-                command git commit -m "lts: $ts"
-
-            case p
-                command git push
-
-            case a
-                set -l ts (date '+%Y-%m-%d %H:%M:%S')
-                command git add .
-                command git commit -m "lts: $ts"
-                command git push
-
+        switch "$argv[1]"
             case ac
-                set -l ts (date '+%Y-%m-%d %H:%M:%S')
-                command git add .
-                if test (count $argv) -gt 1
-                    command git commit -m "$argv[2..-1]"
-                else
-                    command git commit -m "lts: $ts"
+                command git add -A; or return
+                if command git diff --cached --quiet
+                    echo "Nothing to commit."
+                    return
                 end
-                command git push
+                command git diff --cached --stat
+                set -l msg "$argv[2..-1]"
+                test -n "$msg"; or set msg (__git_smart_msg)
+                command git commit -m "$msg"; and command git push
+
+            case yeet
+                # untracked files count, ignored ones (private/, result) don't
+                set -l changes (command git status --short)
+                if test -z "$changes"
+                    echo "Nothing to yeet."
+                    return
+                end
+                printf '%s\n' $changes
+                read -l -P 'Throw all of this away? [y/N] ' answer
+                string match -qi y -- "$answer"; or return 1
+                command git reset --hard HEAD; and command git clean -fd
 
             case '*'
-                # any other git command, just pass through
                 command git $argv
         end
     end

@@ -16,7 +16,7 @@ in {
 
   home.stateVersion = "24.11";
 
-  # ENV varriables
+  # ENV variables
   home.sessionVariables = {
     GIT_EDITOR = "nvim";
     EDITOR = "nvim";
@@ -68,7 +68,7 @@ in {
     Install = { WantedBy = [ "default.target" ]; };
   };
 
-  # Sleep inhibetor service
+  # Sleep inhibitor service
   systemd.user.services.awake = {
     Unit = {
       Description = "Keep laptop awake (block suspend + lid close)";

@@ -3,7 +3,7 @@
 set -euo pipefail
 
 DEV="intel_backlight"           # Device (brightnessctl -l # to list all devices)
-DIR="$1"                        # user inputt {up | down}
+DIR="$1"                        # user input {up | down}
 CUR=$(brightnessctl get "$DEV") # get current brightness
 MAX=$(brightnessctl -d "$DEV" max)
 

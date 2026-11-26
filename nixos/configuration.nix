@@ -63,7 +63,7 @@ in {
   programs.command-not-found.enable = false;
   networking.hostName = profile.hostname;
 
-  # ENV varriables
+  # ENV variables
   environment.variables = {
     TERMINAL = profile.terminal;
     EDITOR = profile.editor;
@@ -213,10 +213,10 @@ in {
   };
 
   # ------------------------------------------------------------------------------------------
-  # --------------------------------------- PERIFERALS ---------------------------------------
+  # --------------------------------------- PERIPHERALS --------------------------------------
   # ------------------------------------------------------------------------------------------
 
-  # Inverse tutchpad scolling. No middle-click emulation: left and right
+  # Inverse touchpad scrolling. No middle-click emulation: left and right
   # pressed together stay left and right (games read them as two buttons),
   # instead of turning into a middle click.
   services.libinput = {
@@ -320,9 +320,6 @@ in {
       KillMode = "mixed";
       TimeoutStopSec = 10;
     };
-    environment = {
-      MM_DEBUG = "1";
-    };
   };
   services.fwupd.enable = true;
   networking.firewall = {
@@ -345,17 +342,17 @@ in {
   # ----------------------------------------- SECURITY ---------------------------------------
   # ------------------------------------------------------------------------------------------
 
-  security.polkit.enable = true; # managing user premitions
+  security.polkit.enable = true; # managing user permissions
   security.sudo.extraRules = [{
     users = [ profile.username ];
     commands = [
       {
         command = "${pkgs.systemd}/bin/systemctl start sshd";
-        options = [ "NOPASSWD" ]; # Not shure if nessesary
+        options = [ "NOPASSWD" ]; # Not sure if necessary
       }
       {
         command = "${pkgs.systemd}/bin/systemctl stop sshd";
-        options = [ "NOPASSWD" ]; # Not shure if nessesary
+        options = [ "NOPASSWD" ]; # Not sure if necessary
       }
       {
         command = "${pkgs.coreutils}/bin/tee /proc/acpi/ibm/fan";
@@ -363,7 +360,7 @@ in {
       }
     ];
   }];
-  programs.dconf.enable = true; # somthing, something, keys...
+  programs.dconf.enable = true; # something, something, keys...
   programs.gnupg.agent = {
     enable = true;
     enableSSHSupport = true;
@@ -446,10 +443,10 @@ in {
   };
 
   # ------------------------------------------------------------------------------------------
-  # ---------------------------------------- NIX SPESIFIC ------------------------------------
+  # ---------------------------------------- NIX SPECIFIC ------------------------------------
   # ------------------------------------------------------------------------------------------
 
-  # Fix to get bin/bash to work, not strictly nessesary.
+  # Fix to get bin/bash to work, not strictly necessary.
   system.activationScripts.binbash = {
   text = ''
     mkdir -p /bin
@@ -482,7 +479,7 @@ in {
   };
 
 
-  system.stateVersion = "24.11"; # apparantly important. ¯\_(ツ)_/¯
+  system.stateVersion = "24.11"; # apparently important. ¯\_(ツ)_/¯
   home-manager.backupFileExtension = "backup";
 
   # ------------------------------------------------------------------------------------------
@@ -545,7 +542,7 @@ in {
     # Editors:
     vim
 
-    # Backupp browser:
+    # Backup browser:
     chromium
 
     # Multi monitor support:
@@ -577,15 +574,15 @@ in {
     jq # JSON processor
 
     # Small programs:
-    rofi # Application launcer
+    rofi # Application launcher
     dunst # notification daemon
     flameshot # screenshot app
-    pavucontrol # Audio controll
+    pavucontrol # Audio control
     polkit_gnome # GUI for user auth
     networkmanagerapplet # nm-applet nm-connection-editor
     brightnessctl # Backlight brightness support
     qalculate-gtk # Calculator
-    udiskie # USB automout applet
+    udiskie # USB automount applet
     baobab # disk analyser tool
     speedtest-cli # network speed test
     nethogs # program network usage
@@ -599,12 +596,12 @@ in {
     curl # transfer data over URLs (HTTP, FTP, etc.)
     file # detect a file’s type/format
     xclip # clipboard manager
-    htop # program control pannel
-    libnotify # notifyer backend
+    htop # program control panel
+    libnotify # notifier backend
     xev # show keycodes
     xmodmap # list keycodes
     imagemagick # Blur images
-    xdotool # for scripts flashing to microcontollers
+    xdotool # for scripts flashing to microcontrollers
     wget # download files from web
     usbutils # list USB devices
     lsof # list open files/processes
@@ -613,12 +610,12 @@ in {
     coreutils # GNU base tools (ls, cp, etc.)
     maim # screenshot tool
     lshw # list hardware details
-    sshfs # acsess to folk.NTNU
+    sshfs # access to folk.NTNU
     xidlehook # autolocker
     ntfs3g # Windows filesystem support
     file-roller # zip and unzip for thunar
     mesa-demos # GPU utils
-    nftables # Filefwall tools
+    nftables # Firewall tools
     glmark2 # GPU benchmark
     mpv # the best video player
     bat # cat but with colors

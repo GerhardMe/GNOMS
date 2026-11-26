@@ -42,6 +42,6 @@ function fish_prompt
     printf '\033[38;5;14m❯ \033[0m'
 end
 
-# OLD PROMT:
+# OLD PROMPT:
 # PROMPT='%{%F{93}%}[%{%F{14}%}%1~%{%F{93}%}]%{%f%}%{%F{14}%}❯%{%f%}'
 # RPROMPT='%{%F{253}%}$(branch=$(git symbolic-ref --short HEAD 2>/dev/null) && printf "(%s)" "$branch")%{%f%}'
