@@ -607,8 +607,8 @@ local function update_clock()
 		string.format(
 		"<span font='%s'>%s%s</span>",
 		beautiful.font,
-		os.date("%d.%m  %b ", statusbar.clock_day(now)),
-		os.date("%H:%M  ", now)
+		os.date("%d.%m  %b ", statusbar.clock_day(now)),
+		os.date("%H:%M  ", now)
 	)
 end
 statusbar.update_clock = update_clock
